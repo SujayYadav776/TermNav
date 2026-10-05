@@ -1,0 +1,26 @@
+  TERM / NAV    a quiet place for your files                              HIDDEN  OFF     
+                                                                                          
+  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground                   
+╭───────────────────────────────────────────╮╭───────────────────────────────────────────╮
+│ FILES                                     ││ PREVIEW                                   │
+│ 9 items  /  name                          ││ MARKDOWN  /  Tab to expand                │
+│                                           ││                                           │
+│   ▸ documents                   dir/      ││     1 # A quiet place for your files      │
+│   ▸ inbox                       dir/      ││     2                                     │
+│   ▸ notes                       dir/      ││     3 Welcome to TermNav.                 │
+│   ▸ projects                    dir/      ││     4                                     │
+│   · 01-welcome.md               269 B     ││     5   h j k l   Move through your files │
+│   · landscape.png               4.2 KiB   ││     6   /         Find something          │
+│   · palette.json                122 B     ││     7   Space     Mark a file             │
+│   · project.zip                 308 B     ││     8   y then p  Copy between directorie │
+│   · sample.bin                  256 B     ││     9   ?         Discover every shortcut │
+│                                           ││    10                                     │
+│                                           ││    11 Explore the folders. Make something │
+│                                           ││                                           │
+│                                           ││                                           │
+│                                           ││                                           │
+╰───────────────────────────────────────────╯╰───────────────────────────────────────────╯
+  -rw-r--r--  269 B  Oct 04 2026  13:09                                                   
+  Welcome. Press ? to find your way around.                                               
+  h j k l navigate   Tab preview   : commands   d trash   u undo   ? help                 
+  NORMAL                                                                           5 / 9  

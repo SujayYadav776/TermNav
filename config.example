@@ -1,0 +1,5 @@
+# Copy to ~/.config/termnav/config (or $XDG_CONFIG_HOME/termnav/config).
+show_hidden = false
+ascii = false
+# name | size | modified
+sort = name

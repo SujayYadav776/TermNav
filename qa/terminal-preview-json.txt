@@ -1,0 +1,34 @@
+  TERM / NAV    a quiet place for your files                                                                                    HIDDEN  OFF     
+                                                                                                                                                
+  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground/palette.json                                                            
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ READ-ONLY PREVIEW                                                                                                                            │
+│ JSON  /  READ ONLY                                                                                                                           │
+│                                                                                                                                              │
+│     1 {                                                                                                                                      │
+│     2   "background": "#1c1c1c",                                                                                                             │
+│     3   "accent": "#d7af87",                                                                                                                 │
+│     4   "directories": "#87afd7",                                                                                                            │
+│     5   "intent": "quiet, useful, considered"                                                                                                │
+│     6 }                                                                                                                                      │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  -rw-r--r--  122 B  Oct 04 2026  13:09                                                                                                         
+  JSON  /  6 lines  /  column 1                                                                                                                 
+  Esc/Tab close   j k scroll   h l pan   PgUp PgDn page   gg G ends   R refresh                                                                 
+  PREVIEW                                                                                                                                1 / 6  

@@ -1,0 +1,8 @@
+.tools/
+build/
+termnav
+test-playground/
+__pycache__/
+*.core
+qa/*.cast
+qa/*.png

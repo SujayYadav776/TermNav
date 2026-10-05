@@ -1,0 +1,34 @@
+  TERM / NAV    a quiet place for your files                                                                                    HIDDEN  OFF     
+                                                                                                                                                
+  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground                                                                         
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ DISK USAGE EXPLORER                                                                                                                          │
+│ COMPLETE / 10 of 10 / 8.0 KiB allocated / 5.7 KiB apparent / 0 skipped                                                                       │
+│                                                                                                                                              │
+│      8.0 KiB  100.0%  [############]  landscape.png                                                                                          │
+│          0 B    0.0%  [............]  .hidden-note                                                                                           │
+│          0 B    0.0%  [............]  01-welcome.md                                                                                          │
+│          0 B    0.0%  [............]  documents/                                                                                             │
+│          0 B    0.0%  [............]  inbox/                                                                                                 │
+│          0 B    0.0%  [............]  notes/                                                                                                 │
+│          0 B    0.0%  [............]  palette.json                                                                                           │
+│          0 B    0.0%  [............]  project.zip                                                                                            │
+│          0 B    0.0%  [............]  projects/                                                                                              │
+│          0 B    0.0%  [............]  sample.bin                                                                                             │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+│                                                                                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                
+  Welcome. Press ? to find your way around.                                                                                                     
+  Enter drill down   h parent   o reveal   R rescan   Esc close                                                                                 
+  EXPLORER                                                                                                                                      

@@ -1,0 +1,15 @@
+name: Build and test
+on: [push, pull_request]
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libncursesw5-dev valgrind python3-pillow poppler-utils
+      - run: make CC=${{ matrix.compiler }} CFLAGS='-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror' check
+      - run: valgrind --leak-check=full --errors-for-leak-kinds=definite,indirect --error-exitcode=1 ./build/test_fs
+      - run: valgrind --leak-check=full --errors-for-leak-kinds=definite,indirect --error-exitcode=1 ./build/test_features
+      - run: make CC=${{ matrix.compiler }} sanitize

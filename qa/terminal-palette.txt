@@ -1,0 +1,34 @@
+  TERM / NAV    a quiet place for your files                                                                                    HIDDEN  OFF     
+                                                                                                                                                
+  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground                                                                         
+╭─────────────────────────────╮╭────────────────────────────────────────────────────╮╭─────────────────────────────────────────────────────────╮
+│ 01  PARENT                  ││ 02  FILES                                          ││ 03  PREVIEW                                             │
+│ TermNav                     ││ 9 items  /  name                                   ││ DIRECTORY  /  Tab to expand                             │
+│                          ╭────────────────────────────────────────────────────────────────────────────────────────╮                          │
+│   ▸ build                │ COMMAND PALETTE                                                                        │                98 B      │
+│   ▸ docs                 │ Type to find an action                                                                 │                          │
+│   ▸ qa                   │ preview                                                                                │                          │
+│   ▸ scripts              │                                                                                        │                          │
+│   ▸ src                  │  Preview selected entry                                                           Tab  │                          │
+│   ▸ test-playground      │  Refresh directory                                                                R    │                          │
+│   ▸ tests                │                                                                                        │                          │
+│   · config.example       │                                                                                        │                          │
+│   · LICENSE              │                                                                                        │                          │
+│   · Makefile             │                                                                                        │                          │
+│   · README.md            │                                                                                        │                          │
+│   ◆ termnav              │                                                                                        │                          │
+│   · termnav.ps1          │                                                                                        │                          │
+│                          │                                                                                        │                          │
+│                          │                                                                                        │                          │
+│                          │                                                                                        │                          │
+│                          │                                                                                        │                          │
+│                          │                                                                                        │                          │
+│                          │ Full-screen text, images, PDF and archives                                             │                          │
+│                          │ Up/Down choose   Enter run   Esc close                                                 │                          │
+│                          ╰────────────────────────────────────────────────────────────────────────────────────────╯                          │
+│                             ││                                                    ││                                                         │
+╰─────────────────────────────╯╰────────────────────────────────────────────────────╯╰─────────────────────────────────────────────────────────╯
+  drwxrwxrwx  4.0 KiB  Oct 04 2026  13:09                                                                                                       
+  Welcome. Press ? to find your way around.                                                                                                     
+  COMMAND  preview                                                                                                                              
+  Enter accept   Esc cancel   Ctrl-u clear                                                                                                      

@@ -1,0 +1,82 @@
+.TH TERMNAV 1 "October 2026" "TermNav 1.1.0"
+.SH NAME
+termnav \- keyboard-driven, three-pane terminal file manager
+.SH SYNOPSIS
+.B termnav
+[\fIoptions\fR] [\fIdirectory\fR]
+.SH DESCRIPTION
+Browse parent, current and preview panes with vim keys or arrow keys.
+Directories appear before files. Text previews are bounded to 64 KiB.
+Copy and delete run in a background thread with live progress counters.
+.SH OPTIONS
+.TP
+.B -a, --all
+Show hidden files.
+.TP
+.B --ascii
+Use ASCII file-type symbols.
+.TP
+.B --no-color
+Disable colors. Also honors NO_COLOR.
+.TP
+.B -h, --help
+Print usage.
+.TP
+.B -v, --version
+Print version.
+.SH KEYS
+j/k or arrows move; h/l or arrows navigate; Enter enters a directory or previews a file;
+Tab expands any preview;
+gg/G jumps first/last; J/K scrolls preview; / filters; Space marks;
+v marks visible entries; y copies paths; p pastes; c copies to a directory;
+a creates a directory; r renames; d trashes after typing trash; X permanently deletes after typing delete;
+u restores the latest trash batch; T opens the trash browser;
+t opens operations; D explores disk usage; b/f navigate history; H picks history;
+: opens the searchable command palette;
+o goes to a path; ~ goes home; e edits with EDITOR; . toggles hidden;
+s cycles sort; R refreshes; ? opens help; q quits.
+.SH FULL-SCREEN PREVIEW
+Enter on a file or Tab on any entry opens a read-only full-screen viewer.
+j/k scroll; h/l pan horizontally; PageUp/PageDown page; gg/G jump to ends;
+0 resets horizontal position; R refreshes; Esc, Tab or q closes the viewer.
+Binary files show sixteen-byte hex rows with offsets and an ASCII column.
+Text shows line numbers and lightweight per-line syntax coloring.
+Preview content is bounded to the first 64 KiB; truncation is labelled.
+File operation keys are inactive inside the viewer. Browser selection, marks,
+and filter persist when it closes. Images use native Sixel rasters on terminals
+reporting support, with a pane-sized 1280x960 maximum and adaptive image colors.
+Other terminals use Unicode half blocks; ASCII mode uses plain blocks.
+Image previews use optional Python Pillow. PDFs show text from their first five pages using Poppler.
+ZIP/tar archives list their contents without extraction. Rich previews are
+bounded by memory, CPU, output and timeout limits; missing helpers show errors.
+.SH OPERATIONS
+The dashboard lists the active job, up to 16 queued jobs, and 32 recent results.
+Space pauses or resumes the active selection; x cancels active or queued work.
+Copy progress includes byte counts, average speed and elapsed time.
+.SH TRASH
+Trash payloads live beside their original parent in private .termnav-trash-UID
+directories; records persist under XDG_DATA_HOME/termnav/trash or
+~/.local/share/termnav/trash. This is separate from desktop recycle bins.
+Restore refuses to overwrite an existing name. Undo applies to trash only.
+T opens recovery; Enter restores an individual item; u restores the latest batch.
+Restore moved parent directories before their children. Empty bins may remain.
+.SH DISK USAGE AND HISTORY
+D starts a background scan including hidden files. Allocated blocks are shown
+with bars and percentages, alongside apparent totals. Enter drills down; h goes
+to the parent; o reveals the selection in the file browser. R rescans.
+Symlinks are never followed; hard links count per entry.
+b/f go back/forward, restoring filters and selection. H opens the history picker.
+History retains 64 locations per session; a new branch replaces forward history.
+.SH FILES
+$XDG_CONFIG_HOME/termnav/config or ~/.config/termnav/config.
+Supported settings: show_hidden=true|false, ascii=true|false,
+sort=name|size|modified.
+.SH ENVIRONMENT
+EDITOR names the editor executable (no arguments), default vi.
+NO_COLOR disables colors. TERM must describe an interactive terminal.
+TERMNAV_IMAGE=auto (default) probes Sixel; sixel forces raster output;
+blocks selects the portable fallback. Do not force Sixel on unsupported terminals.
+.SH NOTES
+X deletion is permanent. Existing destination files are never overwritten.
+Cancellation keeps completed work; directory copies may be partial.
+Symlinks are copied as links and are never traversed by recursive copy/delete.
