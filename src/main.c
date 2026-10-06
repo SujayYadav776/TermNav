@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
         if (r != ERR) app_input(&a, key, r == KEY_CODE_YES);
         ++a.ticks;
     }
-    app_operations_finish(&a); rich_stop(&a.rich); usage_destroy(&a.usage); trash_free(&a.trash); ui_shutdown(&a);
+    app_operations_finish(&a); rich_stop(&a.rich); usage_destroy(&a.usage); search_destroy(&a.search); trash_free(&a.trash); ui_shutdown(&a);
     fs_free(&a.current); fs_free(&a.parent); preview_free(&a.preview); free(a.visible);
     fs_paths_free(a.clipboard, a.clipboard_count);
     return 0;

@@ -301,8 +301,8 @@ static void help(App *a) {
     wbkgd(w, color(a, INK)); werase(w); wattrset(w, color(a, ACCENT)); pane_border(a, w);
     text(w, 1, 3, width - 6, "Find your way around", color(a, ACCENT) | A_BOLD);
     text(w, 2, 3, width - 6, "F1 Home / w toggle Home / Tab switch areas on Home", color(a, MUTED));
-    const char *keys[] = {"j k / arrows", "h l / Enter", "gg / G", "J K / Tab", "/ / :", ". / s / R", "Space / v", "y p / c", "a / r", "d / u / T", "X", "t / D", "b f / H", "o ~ / e", "Esc", "q"};
-    const char *desc[] = {"Move selection", "Parent / enter; file opens preview", "First / last item", "Scroll preview / expand to full screen", "Filter files / command palette", "Hidden files / sort / refresh", "Mark one / mark visible items", "Clipboard copy / copy to a directory", "Create directory / rename", "Trash / undo / browse trash", "Permanent delete; type delete to confirm", "Operations dashboard / disk usage", "Directory back/forward / history", "Go to directory/home / editor", "Clear filter & marks / cancel job", "Quit (confirms active or queued jobs)"};
+    const char *keys[] = {"j k / arrows", "h l / Enter", "gg / G", "J K / Tab", "/ / S / :", ". / s / R", "Space / v", "y p / c", "a / r", "d / u / T", "X", "t / D", "b f / H", "o ~ / e", "Esc", "q"};
+    const char *desc[] = {"Move selection", "Parent / enter; file opens preview", "First / last item", "Scroll preview / expand to full screen", "Filter / search subfolders / commands", "Hidden files / sort / refresh", "Mark one / mark visible items", "Clipboard copy / copy to a directory", "Create directory / rename", "Trash / undo / browse trash", "Permanent delete; type delete to confirm", "Operations dashboard / disk usage", "Directory back/forward / history", "Go to directory/home / editor", "Clear filter & marks / cancel job", "Quit (confirms active or queued jobs)"};
     int available = height - 7;
     for (int i = 0; i < 16 && i < available; ++i) {
         text(w, i + 4, 3, 18, keys[i], color(a, ACCENT));
@@ -368,14 +368,14 @@ static void home_dashboard(App *a) {
     if (nav) {
         text(w,1,2,17,"TermNav",home_color(a,HOME_ACCENT)|A_BOLD);
         text(w,3,2,17,"WORKSPACE",home_color(a,HOME_MUTED));
-        const char *labels[] = {"w  Home", "o  Open location", "H  Recent folders", "t  Operations", "T  Trash", "D  Disk explorer"};
-        for (int i=0;i<6 && i+5<height;++i) text(w,i+5,2,17,labels[i],home_color(a,i ? HOME_BASE : HOME_ACCENT)|(!i ? A_BOLD : 0));
+        const char *labels[] = {"w  Home", "o  Open location", "S  Search files", "H  Recent folders", "t  Operations", "T  Trash", "D  Disk explorer"};
+        for (int i=0;i<7 && i+5<height;++i) text(w,i+5,2,17,labels[i],home_color(a,i ? HOME_BASE : HOME_ACCENT)|(!i ? A_BOLD : 0));
         text(w,height-3,2,17,":  Commands",home_color(a,HOME_ACCENT));
         text(w,height-2,2,17,"?  Keyboard help",home_color(a,HOME_MUTED));
         for(int row=0;row<height;++row) text(w,row,nav-1,1,a->ascii ? "|" : "│",home_color(a,HOME_MUTED));
     }
     text(w,1,x,content,"Home / Your workspace",home_color(a,HOME_BASE)|A_BOLD);
-    char line[PATH_MAX+64]; snprintf(line,sizeof(line),"%zu items   %s   a New folder   / Search",a->visible_count,a->sort == 1 ? "Size" : a->sort == 2 ? "Modified" : "Name");
+    char line[PATH_MAX+64]; snprintf(line,sizeof(line),"%zu items   %s   a New folder   / Filter   S Search",a->visible_count,a->sort == 1 ? "Size" : a->sort == 2 ? "Modified" : "Name");
     text(w,2,x,content,line,home_color(a,HOME_MUTED));
     bool cards = height >= 22 && content >= 52;
     text(w,4,x,content,a->home_focus == 0 ? "> QUICK ACCESS" : "QUICK ACCESS",home_color(a,HOME_ACCENT)|A_BOLD);
@@ -452,6 +452,7 @@ static void home_dashboard(App *a) {
     wnoutrefresh(w);
 }
 static size_t panel_count(App *a) {
+    if (a->panel == PANEL_SEARCH) { pthread_mutex_lock(&a->search.mutex); size_t n=a->search.count; pthread_mutex_unlock(&a->search.mutex); return n; }
     if (a->panel == PANEL_HISTORY) return a->history.count;
     if (a->panel == PANEL_TRASH) return a->trash.count;
     if (a->panel == PANEL_USAGE) { pthread_mutex_lock(&a->usage.mutex); size_t n = a->usage.count; pthread_mutex_unlock(&a->usage.mutex); return n; }
@@ -461,7 +462,7 @@ static void feature_panel(App *a) {
     WINDOW *w = a->viewer; if (!w) return;
     int width = getmaxx(w), height = getmaxy(w) - 5; char info[512], line[1024];
     size_t count = panel_count(a);
-    const char *title = a->panel == PANEL_HISTORY ? "DIRECTORY HISTORY" : a->panel == PANEL_TRASH ? "TRASH / RECOVER YOUR FILES" : a->panel == PANEL_USAGE ? "DISK USAGE EXPLORER" : "OPERATIONS DASHBOARD";
+    const char *title = a->panel == PANEL_SEARCH ? "SEARCH RESULTS" : a->panel == PANEL_HISTORY ? "DIRECTORY HISTORY" : a->panel == PANEL_TRASH ? "TRASH / RECOVER YOUR FILES" : a->panel == PANEL_USAGE ? "DISK USAGE EXPLORER" : "OPERATIONS DASHBOARD";
     if (a->panel == PANEL_OPERATIONS) snprintf(info, sizeof(info), "%zu active / %zu queued / %zu recent", a->job.started ? (size_t)1 : 0, a->queue_count, a->operation_count);
     else if (a->panel == PANEL_USAGE) {
         pthread_mutex_lock(&a->usage.mutex);
@@ -469,6 +470,12 @@ static void feature_panel(App *a) {
         snprintf(info, sizeof(info), "%s / %zu of %zu / %s allocated / %s apparent / %llu skipped", atomic_load(&a->usage.done) ? "COMPLETE" : "SCANNING", a->usage.completed, a->usage.count, size, apparent, (unsigned long long)a->usage.total.errors);
         if (atomic_load(&a->usage.done) && a->usage.error) snprintf(info, sizeof(info), "Scan failed: %s", strerror(a->usage.error));
         pthread_mutex_unlock(&a->usage.mutex);
+    } else if(a->panel==PANEL_SEARCH) {
+        pthread_mutex_lock(&a->search.mutex);
+        bool done=atomic_load(&a->search.done);
+        snprintf(info,sizeof(info),"%s / %zu matches / %zu skipped%s / %.255s",!done ? "SEARCHING" : atomic_load(&a->search.cancel) ? "STOPPED" : "COMPLETE",count,a->search.skipped,a->search.limited ? " / first 1000 results" : "",a->search.query);
+        if(done && a->search.error) snprintf(info,sizeof(info),"Search failed: %s",strerror(a->search.error));
+        pthread_mutex_unlock(&a->search.mutex);
     } else snprintf(info, sizeof(info), "%zu %s / Enter %s", count, a->panel == PANEL_HISTORY ? "locations" : "recoverable items", a->panel == PANEL_HISTORY ? "jump" : "restore");
     frame(a, w, title, info, true);
     if (a->panel_cursor >= count) a->panel_cursor = count ? count - 1 : 0;
@@ -477,7 +484,14 @@ static void feature_panel(App *a) {
     for (int row = 0; row < height && a->panel_scroll + (size_t)row < count; ++row) {
         size_t index = a->panel_scroll + (size_t)row;
         bool selected = index == a->panel_cursor; int attr = color(a, INK);
-        if (a->panel == PANEL_HISTORY) {
+        if (a->panel == PANEL_SEARCH) {
+            pthread_mutex_lock(&a->search.mutex);
+            SearchItem *item=&a->search.items[index];
+            const char *relative=item->path+strlen(a->search.path); if(*relative=='/') ++relative;
+            snprintf(line,sizeof(line),"%s %.990s",item->directory ? "dir/" : "file",relative);
+            attr=color(a,item->directory ? BLUE : INK);
+            pthread_mutex_unlock(&a->search.mutex);
+        } else if (a->panel == PANEL_HISTORY) {
             snprintf(line, sizeof(line), "%c %2zu  %.900s", index == a->history.position ? '*' : ' ', index + 1, a->history.entries[index].path);
         } else if (a->panel == PANEL_TRASH) {
             time_t when = (time_t)(a->trash.entries[index].when / 1000000000u); struct tm tm; localtime_r(&when, &tm); char date[32]; strftime(date, sizeof(date), "%b %d %H:%M", &tm);
@@ -508,7 +522,7 @@ static void feature_panel(App *a) {
         if (selected) { attr = a->no_color ? (int)A_REVERSE : color(a, SELECTED) | (int)A_BOLD; wattrset(w, attr); mvwhline(w, row + 4, 1, ' ', width - 2); }
         text(w, row + 4, 2, width - 4, line, attr);
     }
-    if (!count) text(w, 5, 3, width - 6, a->panel == PANEL_TRASH ? "Your trash is empty." : a->panel == PANEL_OPERATIONS ? "No operations yet. Copy or trash a file to begin." : "No entries to show.", color(a, MUTED));
+    if (!count) text(w, 5, 3, width - 6, a->panel == PANEL_SEARCH ? "No matches yet. S changes the search; Esc closes." : a->panel == PANEL_TRASH ? "Your trash is empty." : a->panel == PANEL_OPERATIONS ? "No operations yet. Copy or trash a file to begin." : "No entries to show.", color(a, MUTED));
     wnoutrefresh(w);
 }
 static void palette(App *a) {
@@ -553,9 +567,9 @@ static void bottom(App *a) {
         text(stdscr, row + 1, 2, COLS - 4, buffer, color(a, MUTED));
     }
     if (a->panel == PANEL_HOME && a->mode == NORMAL) {
-        text(stdscr,row+2,2,COLS-4,"Tab switch area   arrows choose   Enter open   w browser   F1 Home",color(a,MUTED));
+        text(stdscr,row+2,2,COLS-4,"S search   Tab areas   Enter/Right open   Backspace parent   w browser   F1 Home",color(a,MUTED));
         text(stdscr,row+3,1,8," HOME ",color(a,BAR)|A_BOLD);
-    } else if (a->panel != PANEL_NONE && a->panel != PANEL_HOME && a->mode != PALETTE_INPUT) {
+    } else if (a->panel != PANEL_NONE && a->panel != PANEL_HOME && a->mode == NORMAL) {
         if (a->panel == PANEL_OPERATIONS) {
             size_t offset=(a->job.started ? 1 : 0)+a->queue_count;
             if (a->panel_cursor>=offset && a->panel_cursor-offset<a->operation_count) {
@@ -563,7 +577,7 @@ static void bottom(App *a) {
                 if (op->error) { snprintf(buffer,sizeof(buffer),"%s: %s / %s",job_name(op->kind),strerror(op->error),op->failed); text(stdscr,row,2,COLS-4,buffer,color(a,RED)); }
             }
         }
-        const char *hint = a->panel == PANEL_OPERATIONS ? "Space pause/resume   x cancel selected job   j k choose   Esc close" : a->panel == PANEL_USAGE ? "Enter drill down   h parent   o reveal   R rescan   Esc close" : a->panel == PANEL_TRASH ? "Enter restore selected   u undo latest batch   R refresh   Esc close" : "Enter jump   j k choose   Esc close";
+        const char *hint = a->panel == PANEL_SEARCH ? "Enter open   o reveal   j k choose   S new search   R rescan   x stop   Esc close" : a->panel == PANEL_OPERATIONS ? "Space pause/resume   x cancel selected job   j k choose   Esc close" : a->panel == PANEL_USAGE ? "Enter drill down   h parent   o reveal   R rescan   Esc close" : a->panel == PANEL_TRASH ? "Enter restore selected   u undo latest batch   R refresh   Esc close" : "Enter jump   j k choose   Esc close";
         text(stdscr, row + 2, 2, COLS - 4, hint, color(a, MUTED));
         text(stdscr, row + 3, 1, 12, " EXPLORER ", color(a, BAR) | A_BOLD);
     } else if (a->preview_full && a->mode != PALETTE_INPUT) {
@@ -579,7 +593,7 @@ static void bottom(App *a) {
         else snprintf(buffer, sizeof(buffer), "%zu / %zu", rows ? a->preview_scroll + 1 : 0, rows);
         text(stdscr, row + 3, COLS - (int)strlen(buffer) - 2, (int)strlen(buffer), buffer, color(a, MUTED));
     } else if (a->mode != NORMAL) {
-        const char *label = a->mode == FILTER ? " FILTER / " : a->mode == MKDIR_INPUT ? " NEW DIRECTORY " : a->mode == RENAME_INPUT ? " RENAME " : a->mode == COPY_INPUT ? " COPY TO DIR " : a->mode == GOTO_INPUT ? " GO TO " : a->mode == QUIT_INPUT ? " QUIT JOB? type q " : a->mode == TRASH_INPUT ? " TRASH? type trash " : a->mode == PALETTE_INPUT ? " COMMAND " : " DELETE? type delete ";
+        const char *label = a->mode == SEARCH_INPUT ? " SEARCH SUBFOLDERS " : a->mode == FILTER ? " FILTER / " : a->mode == MKDIR_INPUT ? " NEW DIRECTORY " : a->mode == RENAME_INPUT ? " RENAME " : a->mode == COPY_INPUT ? " COPY TO DIR " : a->mode == GOTO_INPUT ? " GO TO " : a->mode == QUIT_INPUT ? " QUIT JOB? type q " : a->mode == TRASH_INPUT ? " TRASH? type trash " : a->mode == PALETTE_INPUT ? " COMMAND " : " DELETE? type delete ";
         int len = (int)strlen(label); text(stdscr, row + 2, 1, len, label, color(a, BAR) | A_BOLD);
         text(stdscr, row + 2, len + 2, COLS - len - 4, a->mode == FILTER ? a->query : a->input, color(a, INK) | A_BOLD);
         if (a->mode == DELETE_INPUT || a->mode == TRASH_INPUT) {
@@ -588,7 +602,7 @@ static void bottom(App *a) {
         }
         text(stdscr, row + 3, 2, COLS - 4, "Enter accept   Esc cancel   Ctrl-u clear", color(a, MUTED));
     } else {
-        text(stdscr, row + 2, 2, COLS - 4, "F1 Home   h j k l navigate   Tab preview   : commands   d trash   ? help", color(a, MUTED));
+        text(stdscr, row + 2, 2, COLS - 4, "F1 Home   S search   / filter   Tab preview   : commands   ? help", color(a, MUTED));
         snprintf(buffer, sizeof(buffer), " %s ", a->query[0] ? "FILTERED" : "NORMAL");
         text(stdscr, row + 3, 1, (int)strlen(buffer), buffer, color(a, BAR) | A_BOLD);
         snprintf(buffer, sizeof(buffer), "%zu / %zu", a->visible_count ? a->cursor + 1 : 0, a->visible_count);

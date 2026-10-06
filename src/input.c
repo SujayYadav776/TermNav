@@ -63,6 +63,11 @@ static void submit(App *a) {
         return;
     }
     if (!a->input[0]) return;
+    if (mode == SEARCH_INPUT) {
+        if (search_start(&a->search,a->current.path,a->input,a->hidden) < 0) app_message(a,true,"Search: %s",strerror(errno));
+        else { a->panel=PANEL_SEARCH; a->panel_cursor=a->panel_scroll=0; }
+        return;
+    }
     if (a->job.started && (mode == MKDIR_INPUT || mode == RENAME_INPUT)) {
         app_message(a, true, "Wait for the current job, or Esc to cancel it"); return;
     }
@@ -80,7 +85,8 @@ static void submit(App *a) {
             if (n < 0 || n >= PATH_MAX) { app_message(a, true, "Path too long"); return; }
         } else if (a->input[0] == '/') snprintf(path, sizeof(path), "%s", a->input);
         else if (fs_join(path, a->current.path, a->input) < 0) { app_message(a, true, "Path too long"); return; }
-        if (mode == GOTO_INPUT) app_navigate(a, path, NULL); else start_copy(a, path, false);
+        if (mode == GOTO_INPUT) { if (!app_navigate(a, path, NULL)) a->panel = PANEL_NONE; }
+        else start_copy(a, path, false);
     }
 }
 static void backspace(char *text) {
@@ -121,6 +127,7 @@ static void palette_input(App *a, wint_t key, bool special) {
         size_t index = a->palette_cursor < count ? a->palette_cursor : 0;
         int action = commands[matches[index]].key; a->mode = NORMAL;
         if (a->panel == PANEL_USAGE) usage_stop(&a->usage);
+        if (a->panel == PANEL_SEARCH) search_stop(&a->search);
         a->panel = PANEL_NONE; a->preview_full = false; a->help = false;
         app_input(a, (wint_t)action, false); return;
     }
@@ -135,15 +142,35 @@ static void palette_input(App *a, wint_t key, bool special) {
 static void panel_input(App *a, wint_t key, bool special) {
     if (key == 27 || key == 'q' || (a->panel == PANEL_OPERATIONS && key == 't') || (a->panel == PANEL_TRASH && key == 'T') || (a->panel == PANEL_HISTORY && key == 'H') || (a->panel == PANEL_USAGE && key == 'D')) {
         if (a->panel == PANEL_USAGE) usage_stop(&a->usage);
+        if (a->panel == PANEL_SEARCH) search_stop(&a->search);
         a->panel = PANEL_NONE; return;
     }
     size_t count = a->panel == PANEL_HISTORY ? a->history.count : a->panel == PANEL_TRASH ? a->trash.count : a->queue_count + a->operation_count + (a->job.started ? 1 : 0);
     if (a->panel == PANEL_USAGE) { pthread_mutex_lock(&a->usage.mutex); count = a->usage.count; pthread_mutex_unlock(&a->usage.mutex); }
+    if (a->panel == PANEL_SEARCH) { pthread_mutex_lock(&a->search.mutex); count=a->search.count; pthread_mutex_unlock(&a->search.mutex); }
     if (a->panel_cursor >= count) a->panel_cursor = count ? count - 1 : 0;
     if (key == 'j' || (special && key == KEY_DOWN)) { if (a->panel_cursor + 1 < count) ++a->panel_cursor; }
     else if (key == 'k' || (special && key == KEY_UP)) { if (a->panel_cursor) --a->panel_cursor; }
     else if (key == 'G') a->panel_cursor = count ? count - 1 : 0;
     else if (key == 'g') a->panel_cursor = 0;
+    else if (a->panel == PANEL_SEARCH) {
+        if (key=='x') { atomic_store(&a->search.cancel,true); }
+        else if (key=='R') {
+            char path[PATH_MAX],query[256]; strcpy(path,a->search.path); strcpy(query,a->search.query);
+            if(search_start(&a->search,path,query,a->hidden)<0) app_message(a,true,"Search: %s",strerror(errno));
+            a->panel_cursor=a->panel_scroll=0;
+        } else if (count && (key=='\n' || key=='\r' || key=='o' || key=='l' || (special && (key==KEY_ENTER || key==KEY_RIGHT)))) {
+            char path[PATH_MAX]; bool directory;
+            pthread_mutex_lock(&a->search.mutex);
+            snprintf(path,sizeof(path),"%s",a->search.items[a->panel_cursor].path); directory=a->search.items[a->panel_cursor].directory;
+            pthread_mutex_unlock(&a->search.mutex);
+            char parent[PATH_MAX],name[NAME_MAX+1]; fs_parent(parent,path); snprintf(name,sizeof(name),"%s",fs_basename(path));
+            if(!app_navigate(a,directory ? path : parent,directory ? NULL : name)) {
+                search_stop(&a->search); a->panel=PANEL_NONE;
+                if(!directory && key!='o') a->preview_full=true;
+            }
+        }
+    }
     else if (a->panel == PANEL_OPERATIONS) {
         if (a->job.started && !a->panel_cursor && key == ' ') atomic_store(&a->job.paused, !atomic_load(&a->job.paused));
         else if (key == 'x' || key == 'c') {
@@ -183,7 +210,16 @@ const char *app_quick_folder(size_t index) {
     return names[index < 4 ? index : 0];
 }
 int app_quick_path(char path[PATH_MAX], size_t index) {
-    const char *home = getenv("HOME");
+    static const char *variables[] = {"TERMNAV_USER_HOME", "TERMNAV_DOWNLOADS", "TERMNAV_DOCUMENTS", "TERMNAV_PICTURES"};
+    if (index >= 4) { errno = EINVAL; return -1; }
+    const char *override = getenv(variables[index]);
+    if (override && *override) {
+        int n = snprintf(path, PATH_MAX, "%s", override);
+        if (n >= PATH_MAX) { errno = ENAMETOOLONG; return -1; }
+        return 0;
+    }
+    const char *home = getenv("TERMNAV_USER_HOME");
+    if (!home || !*home) home = getenv("HOME");
     if (!home || !*home) { errno = ENOENT; return -1; }
     if (!index) { snprintf(path, PATH_MAX, "%s", home); return 0; }
     return fs_join(path, home, app_quick_folder(index));
@@ -191,16 +227,22 @@ int app_quick_path(char path[PATH_MAX], size_t index) {
 static void home_input(App *a, wint_t key, bool special) {
     if (key == 'w' || key == 27) { a->panel = PANEL_NONE; return; }
     if (key == '\t') { a->home_focus = (a->home_focus + 1) % 3; return; }
+    if (key == 127 || key == 8 || (special && key == KEY_BACKSPACE) ||
+        (a->home_focus == 1 && (key == 'h' || (special && key == KEY_LEFT)))) {
+        a->panel = PANEL_NONE; app_input(a, 127, false); return;
+    }
     size_t *cursor = a->home_focus == 0 ? &a->home_folder : a->home_focus == 2 ? &a->home_drive : &a->cursor;
     size_t count = a->home_focus == 0 ? 4 : a->home_focus == 2 ? a->drives.count : a->visible_count;
-    if (key == 'j' || key == 'l' || (special && (key == KEY_DOWN || key == KEY_RIGHT))) { if (*cursor + 1 < count) ++*cursor; return; }
+    if (key == 'j' || (special && key == KEY_DOWN) || (a->home_focus == 0 && (key == 'l' || (special && key == KEY_RIGHT)))) { if (*cursor + 1 < count) ++*cursor; return; }
     if (key == 'k' || key == 'h' || (special && (key == KEY_UP || key == KEY_LEFT))) { if (*cursor) --*cursor; return; }
     if (key == 'g' || (special && key == KEY_HOME)) { *cursor = 0; return; }
     if (key == 'G' || (special && key == KEY_END)) { *cursor = count ? count - 1 : 0; return; }
-    if (key == '\n' || key == '\r' || (special && key == KEY_ENTER)) {
+    if (key == '\n' || key == '\r' || (special && key == KEY_ENTER) ||
+        (a->home_focus != 0 && (key == 'l' || (special && key == KEY_RIGHT)))) {
         char path[PATH_MAX];
         if (a->home_focus == 0) {
-            if (app_quick_path(path, a->home_folder) < 0 || app_navigate(a, path, NULL) < 0) { app_message(a, true, "Folder unavailable: %s", strerror(errno)); return; }
+            if (app_quick_path(path, a->home_folder) < 0) { app_message(a, true, "Folder unavailable: %s", strerror(errno)); return; }
+            if (app_navigate(a, path, NULL) < 0) { app_message(a, true, "%s: %s", path, strerror(errno)); return; }
         } else if (a->home_focus == 2) {
             if (!count || app_navigate(a, a->drives.items[a->home_drive].path, NULL) < 0) return;
         } else { a->panel = PANEL_NONE; app_input(a, key, special); return; }
@@ -217,13 +259,18 @@ void app_input(App *a, wint_t key, bool special) {
     if (special && key == KEY_RESIZE) return;
     if (special && key == KEY_F(1) && a->mode == NORMAL) {
         if (a->panel == PANEL_USAGE) usage_stop(&a->usage);
+        if (a->panel == PANEL_SEARCH) search_stop(&a->search);
         a->panel = PANEL_HOME; a->preview_full = a->help = a->pending_g = false;
         a->drives_refreshed = 0; return;
     }
     if (a->mode == PALETTE_INPUT) { palette_input(a, key, special); return; }
     if (a->mode == NORMAL && key == ':') { prompt(a, PALETTE_INPUT, ""); a->palette_cursor = 0; return; }
+    if (a->mode == NORMAL && !a->help && !a->preview_full && key=='S') {
+        if(a->panel==PANEL_USAGE) { usage_stop(&a->usage); a->panel=PANEL_NONE; }
+        prompt(a,SEARCH_INPUT,""); return;
+    }
     if (a->panel == PANEL_HOME && a->mode == NORMAL && !a->help) { home_input(a, key, special); return; }
-    if (a->panel != PANEL_NONE && a->panel != PANEL_HOME) { panel_input(a, key, special); return; }
+    if (a->panel != PANEL_NONE && a->panel != PANEL_HOME && a->mode == NORMAL) { panel_input(a, key, special); return; }
     if (a->preview_full) { viewer_input(a, key, special); return; }
     if (a->help) { if (key == '?' || key == 27 || key == 'q' || key == '\n') a->help = false; return; }
     if (a->mode != NORMAL) {

@@ -23,12 +23,14 @@ class Stream(pyte.Stream):
 
 t = Terminal(str(ROOT / "test-playground"), rows=34, cols=144)
 try:
-    t.send("w\t")
+    search_mode="--search" in sys.argv
+    t.send("SREADME\n" if search_mode else "w\t")
+    t.read(.4)
     screen = Screen(144, 34)
     Stream(screen).feed(t.output.decode("utf-8", errors="replace"))
     data = {"rows": 34, "cols": 144, "cells": [[screen.buffer[y][x]._asdict() for x in range(144)] for y in range(34)]}
-    path = ROOT / "qa" / "terminal-home.json"
+    path = ROOT / "qa" / ("terminal-search.json" if search_mode else "terminal-home.json")
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     path.with_suffix(".txt").write_text("\n".join(row.rstrip() for row in screen.display)+"\n", encoding="utf-8")
 finally:
-    t.close()
+    t.close("\x1bq" if search_mode else "q")

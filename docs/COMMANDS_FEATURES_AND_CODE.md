@@ -10,6 +10,7 @@ This guide describes the current implementation of TermNav, a C11 terminal file 
 - [Full-screen preview commands](#full-screen-preview-commands)
 - [Feature panel commands](#feature-panel-commands)
 - [Command palette](#command-palette)
+- [Recursive filename search](#recursive-filename-search)
 - [Features and their code](#features-and-their-code)
 - [Source map](#source-map)
 - [Configuration and stored data](#configuration-and-stored-data)
@@ -41,7 +42,10 @@ launcher follows the same rule; use `-Path` to start directly in a directory.
 | `w` | Toggle Home and browser. Available in the command palette. |
 | `F1` | Jump to Home from the browser, preview, help or feature panels. Does not interrupt text-entry or confirmation prompts. |
 | `Tab` | Cycle quick-access folders, file table and drives. |
-| Arrows, `h j k l` | Select an item in the focused area. |
+| Up/Down, `j k` | Select an item in the focused area. Left/Right also select quick-access cards. |
+| Right, `l` | Open a selected file-list entry or drive. |
+| Left, `h` | Open the parent directory from the file list. |
+| Backspace | Open the current directory's parent from any Home area. |
 | `g`, `G` | First / last item in the focused area. |
 | `Enter` | Open a quick folder or drive in the browser; files open rich preview. |
 | `Esc` | Return to the browser. |
@@ -52,7 +56,11 @@ folders. Folder cards have tabbed outlines and an amber selection indicator.
 It adapts the sidebar, folder cards, file table and details pane to terminal
 cells. Narrow terminals hide the sidebars; short
 terminals show a compact selection and capacity bar. Home, Downloads, Documents
-and Pictures shortcuts use `$HOME`; unavailable folders report an error.
+and Pictures shortcuts use `$HOME` on Linux. The PowerShell launcher maps them
+to your Windows profile and user folders, including a OneDrive fallback when
+the standard folder is missing. Unavailable folders report their path and error.
+`TERMNAV_USER_HOME`, `TERMNAV_DOWNLOADS`, `TERMNAV_DOCUMENTS` and
+`TERMNAV_PICTURES` can override these shortcuts with Linux/WSL paths.
 
 `src/ui.c:home_dashboard` draws the dashboard and capacity bars.
 `src/input.c:home_input` handles focus and navigation, and reuses existing file
@@ -243,6 +251,38 @@ All 23 registered commands are listed here:
 | Quit TermNav | `q` |
 
 Navigation, marking, and the external editor also have keyboard bindings, but are not separate palette entries.
+
+## Recursive filename search
+
+Press `S` from Home or the browser, type a filename query and press Enter.
+This searches the current directory and its subfolders using the same fuzzy
+filename matching as `/`, with case-insensitive matching for ASCII letters.
+It searches filenames, not file contents. `/` remains the current-folder filter.
+
+| Key in results | Action |
+| --- | --- |
+| Up/Down, `j k` | Select a result. |
+| `g`, `G` | First / last result. |
+| Enter, Right, `l` | Open a directory or preview a file. |
+| `o` | Open the containing directory and select the file. Directories open directly. |
+| `S` | Enter another search query. |
+| `R` | Repeat the query in the original search directory. |
+| `x` | Stop scanning and keep results already found. |
+| Esc, `q` | Close results and stop the worker. |
+| `F1` | Stop searching and return to Home. |
+
+The command palette includes **Search files recursively**. Toggle hidden files
+with `.` before searching to include hidden files and directories. Searches
+stay on the starting filesystem; open another drive to search it. Symlinked
+directories are listed when matched but never traversed. Results are capped
+at 1,000 and traversal depth at 128; skipped entries and the result limit are
+visible in the search status. Search input is limited to 255 bytes.
+
+`src/search.c` owns the background worker, bounded results and cancellation.
+It uses `openat`, `fstatat`, `fdopendir` and `readdir`, checks each directory
+without following symlinks, and protects published results with a mutex.
+`src/input.c` handles the prompt and result actions; `src/ui.c` renders the
+results panel. `src/main.c` joins the worker and frees results on shutdown.
 
 ## Features and their code
 

@@ -26,17 +26,22 @@ build/test_features: tests/test_features.c src/fs_ops.c src/trash.c src/usage.c 
 build/test_sixel: tests/test_sixel.c src/sixel.c
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
+build/test_search: tests/test_search.c src/search.c src/fs_ops.c
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
 build/app_test_main.o: src/main.c
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CURSES_CFLAGS) $(CFLAGS) -MMD -MP -Dmain=termnav_main -c $< -o $@
 build/test_app: tests/test_app.c build/app_test_main.o $(filter-out build/main.o,$(OBJECTS))
 	$(CC) $(CPPFLAGS) $(CURSES_CFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
-test: build/test_fs build/test_features build/test_sixel build/test_app
+test: build/test_fs build/test_features build/test_sixel build/test_app build/test_search
 	./build/test_fs
 	./build/test_features
 	./build/test_sixel
 	./build/test_app
+	./build/test_search
 integration: termnav
+	python3 tests/test_search.py
 	python3 tests/test_home.py
 	python3 tests/test_tui.py
 	python3 tests/test_features.py

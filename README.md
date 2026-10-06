@@ -12,7 +12,11 @@ to switch between the dashboard and browser, or press `F1` to jump to Home
 from the browser, preview, help or a feature panel. Both `make demo` and
 `.\termnav.ps1 -Demo` start on Home with the demo files loaded.
 On Home, `Tab` cycles folders,
-files and drives; arrows choose an item and `Enter` opens it. Drive bars show
+files and drives; arrows choose an item and `Enter` opens it.
+The file list also supports Right/`l` to open and Left/`h` or Backspace to go
+to the parent directory. The PowerShell launcher connects Home shortcuts to
+your Windows user folders, including folders stored in OneDrive.
+Drive bars show
 live used percentage and available space out of total capacity, including
 Windows drives mounted in WSL. Compact two-line drive rows show all four drives
 at standard terminal sizes. Amber means 85% full; red means 95% full.
@@ -20,6 +24,14 @@ Passing a directory starts directly in the browser.
 
 For the complete command reference and explanations of the code behind each
 feature, see [Commands, features, and code guide](docs/COMMANDS_FEATURES_AND_CODE.md).
+
+Press **S** on Home or in the browser to search filenames in the current
+directory and its subfolders. Enter a name and press Enter. Results appear as
+the background search runs; Enter opens a result, `o` reveals its location,
+`S` starts a new query, `x` stops the search and Esc closes it. The existing
+`/` filter searches only the current folder. Search honors hidden-file settings,
+does not follow directory symlinks or cross into other mounted filesystems,
+and limits results to 1,000. To search another drive, open that drive first.
 
 ## Install with one command on Linux
 

@@ -8,13 +8,14 @@
 #include "history.h"
 #include "commands.h"
 #include "drives.h"
+#include "search.h"
 #include <curses.h>
 #include <time.h>
 #define TERMNAV_VERSION "1.1.0"
 #define QUEUE_MAX 16
 #define OP_LOG_MAX 32
-typedef enum { NORMAL, FILTER, MKDIR_INPUT, RENAME_INPUT, GOTO_INPUT, COPY_INPUT, DELETE_INPUT, QUIT_INPUT, TRASH_INPUT, PALETTE_INPUT } InputMode;
-typedef enum { PANEL_NONE, PANEL_OPERATIONS, PANEL_HISTORY, PANEL_USAGE, PANEL_TRASH, PANEL_HOME } Panel;
+typedef enum { NORMAL, FILTER, MKDIR_INPUT, RENAME_INPUT, GOTO_INPUT, COPY_INPUT, DELETE_INPUT, QUIT_INPUT, TRASH_INPUT, PALETTE_INPUT, SEARCH_INPUT } InputMode;
+typedef enum { PANEL_NONE, PANEL_OPERATIONS, PANEL_HISTORY, PANEL_USAGE, PANEL_TRASH, PANEL_HOME, PANEL_SEARCH } Panel;
 typedef struct { char **sources; size_t count; char destination[PATH_MAX], label[NAME_MAX + 1]; JobKind kind; unsigned id; } PendingOp;
 typedef struct { char label[NAME_MAX + 1], failed[NAME_MAX + 1]; JobKind kind; unsigned id; int error; uint64_t bytes, files; double seconds; } OperationLog;
 typedef struct {
@@ -31,6 +32,7 @@ typedef struct {
     History history; bool history_replay;
     TrashList trash;
     UsageScan usage;
+    Search search;
     Drives drives; time_t drives_refreshed;
     unsigned home_focus; size_t home_folder, home_drive;
     Panel panel, layout_panel; size_t panel_cursor, panel_scroll, palette_cursor;

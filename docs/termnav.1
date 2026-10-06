@@ -14,6 +14,9 @@ F1 jumps to Home from the browser, preview, help or feature panels.
 .SH HOME DASHBOARD
 Quick-access folder cards, a file table, and live drive capacity bars.
 Tab cycles folders, files and drives; arrows choose; Enter opens the selection.
+Right/l also opens file-list entries or drives. Left/h opens the parent from
+the file list; Backspace opens the parent from any Home area. The PowerShell
+launcher connects quick-access shortcuts to Windows user folders.
 Drive bars show space available to the current user out of total capacity,
 with amber at 85% occupied and red at 95%. Capacities refresh every five seconds.
 Windows volumes mounted in WSL are included. Narrow terminals hide sidebars.
@@ -38,6 +41,7 @@ Print usage.
 .B -v, --version
 Print version.
 .SH KEYS
+S searches filenames recursively within the current directory; / filters its immediate entries.
 j/k or arrows move; h/l or arrows navigate; Enter enters a directory or previews a file;
 Tab expands any preview in the browser; w opens Home;
 gg/G jumps first/last; J/K scrolls preview; / filters; Space marks;

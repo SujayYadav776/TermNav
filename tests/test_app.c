@@ -46,6 +46,17 @@ int main(void) {
     app_input(a, KEY_F(1), true);
     assert(a->panel == PANEL_NONE && a->mode == RENAME_INPUT);
     a->mode = NORMAL;
+    char nested[PATH_MAX]; assert(!fs_join(nested, root, "nested"));
+    assert(!fs_mkdir(root, "nested")); assert(!app_reload(a, "nested"));
+    a->panel = PANEL_HOME; a->home_focus = 1;
+    app_input(a, KEY_RIGHT, true);
+    assert(a->panel == PANEL_NONE && !strcmp(a->current.path, nested));
+    a->panel = PANEL_HOME;
+    app_input(a, KEY_LEFT, true);
+    assert(a->panel == PANEL_NONE && !strcmp(a->current.path, root));
+    a->panel = PANEL_HOME; a->mode = GOTO_INPUT; strcpy(a->input, nested);
+    app_input(a, '\n', false);
+    assert(a->panel == PANEL_NONE && !strcmp(a->current.path, nested));
     assert(!drives_read(&a->drives) && a->drives.count);
     for (size_t i = 0; i < a->drives.count; ++i) {
         assert(a->drives.items[i].total > 0 && a->drives.items[i].available <= a->drives.items[i].total);
@@ -54,6 +65,6 @@ int main(void) {
     app_operations_finish(a); rich_stop(&a->rich); usage_destroy(&a->usage); trash_free(&a->trash);
     fs_free(&a->current); fs_free(&a->parent); preview_free(&a->preview); free(a->visible); free(a);
     assert(!fs_delete(root, NULL, NULL));
-    puts("PASS: background completion preserves confirmation targets and rename checks active jobs");
+    puts("PASS: confirmation targets, active-job rename protection and Home directory navigation");
     return 0;
 }
