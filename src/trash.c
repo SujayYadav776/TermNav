@@ -35,7 +35,10 @@ static int registry(char root[PATH_MAX], bool create) {
     else { errno = EINVAL; return -1; }
     if (n < 0 || n >= PATH_MAX) { errno = ENAMETOOLONG; return -1; }
     if (create && mkdirs(root) < 0) return -1;
-    return private_dir(root, false);
+    int fd = private_dir(root, false); char canonical[PATH_MAX];
+    if (fd < 0) return -1;
+    if (!realpath(root, canonical)) { int e = errno; close(fd); errno = e; return -1; }
+    strcpy(root, canonical); return fd;
 }
 static int lock_registry(int fd) {
     int lock = openat(fd, ".lock", O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
@@ -84,6 +87,12 @@ int trash_put(const char *path, uint64_t batch) {
     int src = open(canonical, O_RDONLY | O_DIRECTORY | O_CLOEXEC); if (src < 0) return -1;
     int dest = private_dir(bin, true); if (dest < 0) { int e = errno; close(src); errno = e; return -1; }
     int reg = registry(root, true); if (reg < 0) { int e = errno; close(src); close(dest); errno = e; return -1; }
+    /* Moving the registry or an ancestor would make its records unreachable. */
+    struct stat st; size_t length = strlen(original);
+    if (fstatat(src, name, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISDIR(st.st_mode) &&
+        !strncmp(root, original, length) && (!root[length] || root[length] == '/')) {
+        close(src); close(dest); close(reg); errno = EINVAL; return -1;
+    }
     int lock = lock_registry(reg); if (lock < 0) { int e = errno; close(src); close(dest); close(reg); errno = e; return -1; }
     struct timespec now; clock_gettime(CLOCK_REALTIME, &now);
     char id[96]; snprintf(id, sizeof(id), "%lld-%09ld-%ld-%u", (long long)now.tv_sec, now.tv_nsec, (long)getpid(), atomic_fetch_add(&serial, 1));
@@ -96,7 +105,7 @@ int trash_put(const char *path, uint64_t batch) {
     }
     if (metadata >= 0) close(metadata);
     if (!r && syscall(SYS_renameat2, src, name, dest, id, 1u) < 0) { r = -1; e = errno; }
-    if (r) unlinkat(reg, id, 0);
+    if (r) { if (metadata >= 0) unlinkat(reg, id, 0); }
     else { fsync(src); fsync(dest); }
     close(lock); close(reg); close(dest); close(src); errno = e; return r;
 }

@@ -8,7 +8,20 @@ termnav \- keyboard-driven, three-pane terminal file manager
 Browse parent, current and preview panes with vim keys or arrow keys.
 Directories appear before files. Text previews are bounded to 64 KiB.
 Copy and delete run in a background thread with live progress counters.
+Without a directory argument, start in the Home dashboard. A directory argument
+starts directly in the browser. Press w to switch between Home and browser.
+F1 jumps to Home from the browser, preview, help or feature panels.
+.SH HOME DASHBOARD
+Quick-access folder cards, a file table, and live drive capacity bars.
+Tab cycles folders, files and drives; arrows choose; Enter opens the selection.
+Drive bars show space available to the current user out of total capacity,
+with amber at 85% occupied and red at 95%. Capacities refresh every five seconds.
+Windows volumes mounted in WSL are included. Narrow terminals hide sidebars.
+Esc returns to the browser. File actions retain their usual confirmation prompts.
 .SH OPTIONS
+.TP
+.B --home
+Start on Home even when a directory is supplied. Demo launchers use this option.
 .TP
 .B -a, --all
 Show hidden files.
@@ -26,7 +39,7 @@ Print usage.
 Print version.
 .SH KEYS
 j/k or arrows move; h/l or arrows navigate; Enter enters a directory or previews a file;
-Tab expands any preview;
+Tab expands any preview in the browser; w opens Home;
 gg/G jumps first/last; J/K scrolls preview; / filters; Space marks;
 v marks visible entries; y copies paths; p pastes; c copies to a directory;
 a creates a directory; r renames; d trashes after typing trash; X permanently deletes after typing delete;

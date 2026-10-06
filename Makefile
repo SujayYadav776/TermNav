@@ -26,14 +26,22 @@ build/test_features: tests/test_features.c src/fs_ops.c src/trash.c src/usage.c 
 build/test_sixel: tests/test_sixel.c src/sixel.c
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
-test: build/test_fs build/test_features build/test_sixel
+build/app_test_main.o: src/main.c
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CURSES_CFLAGS) $(CFLAGS) -MMD -MP -Dmain=termnav_main -c $< -o $@
+build/test_app: tests/test_app.c build/app_test_main.o $(filter-out build/main.o,$(OBJECTS))
+	$(CC) $(CPPFLAGS) $(CURSES_CFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+test: build/test_fs build/test_features build/test_sixel build/test_app
 	./build/test_fs
 	./build/test_features
 	./build/test_sixel
+	./build/test_app
 integration: termnav
+	python3 tests/test_home.py
 	python3 tests/test_tui.py
 	python3 tests/test_features.py
 	python3 tests/test_image_preview.py
+	python3 tests/test_preview_helper.py
 check: test integration
 sanitize:
 	$(MAKE) clean
@@ -46,7 +54,7 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/termnav $(DESTDIR)$(PREFIX)/share/man/man1/termnav.1 $(DESTDIR)$(PREFIX)/share/termnav/preview_helper.py
 demo: termnav
 	python3 scripts/create_demo.py
-	./termnav test-playground
+	./termnav --home test-playground
 clean:
 	rm -rf build termnav
--include $(OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) build/app_test_main.d

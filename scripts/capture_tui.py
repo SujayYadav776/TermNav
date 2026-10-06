@@ -33,11 +33,7 @@ class CaptureScreen(pyte.Screen):
 class CaptureStream(pyte.Stream):
     csi = dict(pyte.Stream.csi, b="repeat_character",S="scroll_up",T="scroll_down")
     events = pyte.Stream.events | {"repeat_character","scroll_up","scroll_down"}
-# Load only the Terminal helper; test_tui.py has executable tests below it.
-source = (ROOT / "tests" / "test_tui.py").read_text().split("with tempfile.TemporaryDirectory")[0]
-namespace = {"__file__": str(ROOT / "tests" / "test_tui.py")}
-exec(compile(source, str(ROOT / "tests" / "test_tui.py"), "exec"), namespace)
-Terminal = namespace["Terminal"]
+from terminal_support import Terminal
 runpy.run_path(str(ROOT / "scripts" / "create_demo.py"))
 qa = ROOT / "qa"
 qa.mkdir(exist_ok=True)

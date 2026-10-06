@@ -57,9 +57,9 @@ static void *worker(void *context) {
     struct timespec start, now; clock_gettime(CLOCK_MONOTONIC,&start);
     while (buffer) {
         clock_gettime(CLOCK_MONOTONIC,&now);
-        if (atomic_load(&job->cancel) || now.tv_sec - start.tv_sec >= 5 || bytes == limit) break;
+        if (atomic_load(&job->cancel) || now.tv_sec - start.tv_sec >= 5 || bytes > limit) break;
         struct pollfd fd = {pipes[0],POLLIN,0}; poll(&fd,1,20);
-        ssize_t got = read(pipes[0],buffer+bytes,limit-bytes);
+        ssize_t got = read(pipes[0],buffer+bytes,limit+1-bytes);
         if (got > 0) bytes += (size_t)got;
         else if (!got) { ended = true; break; }
         else if (errno != EAGAIN && errno != EINTR) break;
@@ -67,9 +67,11 @@ static void *worker(void *context) {
     if (!ended) kill(-pid,SIGKILL);
     close(pipes[0]); while (waitpid(pid,&status,0) < 0 && errno == EINTR) {}
     if (!buffer) goto done;
+    bool truncated = bytes > limit;
+    if (truncated) bytes = limit;
     buffer[bytes] = 0;
     if (atomic_load(&job->cancel)) { free(buffer); goto done; }
-    if (!ended && bytes < limit) { snprintf(p->message,sizeof(p->message),"Preview timed out after 5 seconds"); free(buffer); goto done; }
+    if (!ended && !truncated) { snprintf(p->message,sizeof(p->message),"Preview timed out after 5 seconds"); free(buffer); goto done; }
     if (bytes>=8 && !memcmp(buffer,"TNINDEX ",8)) {
         char *newline=memchr(buffer,'\n',bytes); unsigned w,h,ow,oh;
         if (ended && WIFEXITED(status) && !WEXITSTATUS(status) && newline && sscanf(buffer,"TNINDEX %u %u %u %u",&w,&h,&ow,&oh)==4 && w && h && w<=1280 && h<=960) {
@@ -87,12 +89,14 @@ static void *worker(void *context) {
             size_t offset=(size_t)(newline+1-buffer); memmove(buffer,buffer+offset,bytes-offset); p->data=buffer; p->bytes=bytes-offset;
             p->image_width=w; p->image_height=h; p->original_width=ow; p->original_height=oh; p->kind=PREVIEW_IMAGE; strcpy(p->format,"IMAGE"); goto done;
         }
-    } else if ((WIFEXITED(status) && !WEXITSTATUS(status)) || (bytes == PREVIEW_BYTES && strcmp(job->mode,"image"))) {
-        p->data=buffer; p->bytes=bytes; p->kind=PREVIEW_TEXT; p->truncated=!ended;
+    } else if (strcmp(job->mode,"image") && ((WIFEXITED(status) && !WEXITSTATUS(status)) || truncated)) {
+        p->data=buffer; p->bytes=bytes; p->kind=PREVIEW_TEXT; p->truncated=truncated;
         strcpy(p->format,!strcmp(job->mode,"pdf") ? "PDF / FIRST 5 PAGES" : "ARCHIVE / CONTENTS");
         if (preview_index(p)) { p->kind=PREVIEW_ERROR; strcpy(p->message,"Out of memory"); }
         goto done;
     } else if (bytes) snprintf(p->message,sizeof(p->message),"%.240s",buffer);
+    if (bytes >= 6 && !memcmp(buffer,"TNIMG ",6)) strcpy(p->message,"Invalid image preview data");
+    if (bytes >= 8 && !memcmp(buffer,"TNINDEX ",8)) strcpy(p->message,"Invalid image preview data");
     free(buffer);
 done:
     atomic_store(&job->done,true); return NULL;

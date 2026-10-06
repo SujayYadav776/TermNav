@@ -21,11 +21,14 @@ if ($Demo) {
     & wsl.exe -d $Distribution --cd $PSScriptRoot --exec python3 scripts/create_demo.py
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     $Path = 'test-playground'
+    $termnavArgs += '--home'
 } elseif ($Path -match '^[A-Za-z]:[\\/]') {
     $Path = (& wsl.exe -d $Distribution --exec wslpath -a $Path).Trim()
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
-$termnavArgs += '--'
-$termnavArgs += $Path
+if ($Demo -or $PSBoundParameters.ContainsKey('Path')) {
+    $termnavArgs += '--'
+    $termnavArgs += $Path
+}
 & wsl.exe -d $Distribution --cd $PSScriptRoot --exec env "TERMNAV_IMAGE=$ImageRenderer" sh -c 'make -s || exit; export TERM=${TERM:-xterm-256color}; exec ./termnav "$@"' termnav @termnavArgs
 exit $LASTEXITCODE

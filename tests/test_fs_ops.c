@@ -67,6 +67,9 @@ int main(void) {
     CHECK(preview_rows(&p) == 2);
     const char *line = preview_line(&p, 1, &line_length);
     CHECK(line && line_length == 5 && !memcmp(line, "world", 5));
+    CHECK(preview_index(&p) == 0 && p.lines == 2);
+    line = preview_line(&p, 1, &line_length);
+    CHECK(line && line_length == 5 && !memcmp(line, "world", 5));
     CHECK(!preview_line(&p, 2, &line_length) && !line_length);
     preview_load(&p, binary, find(&l, "binary"), true); CHECK(p.kind == PREVIEW_BINARY);
     CHECK(preview_rows(&p) == 1 && !strcmp(preview_format(&p), "BINARY / HEX"));

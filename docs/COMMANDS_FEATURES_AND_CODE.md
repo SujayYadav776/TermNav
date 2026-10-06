@@ -1,6 +1,6 @@
 # TermNav: commands, features, and code guide
 
-This guide describes the current implementation of TermNav, a C11 terminal file manager built with ncursesw and POSIX threads. The application runs on Linux; the Windows launcher runs it through WSL. Commands below describe implemented behavior, not proposed features.
+This guide describes the current implementation of TermNav, a C11 terminal file manager built with ncursesw and POSIX threads. The application runs on Linux; the Windows launcher runs it through WSL. Native macOS and native Windows are not supported. Commands below describe implemented behavior, not proposed features.
 
 ## Contents
 
@@ -30,16 +30,53 @@ make
 
 Syntax: `termnav [options] [directory]`. The default directory is `.`.
 
+Without a directory argument, TermNav opens the Home dashboard over the current
+directory. With a directory argument it starts in the browser. The PowerShell
+launcher follows the same rule; use `-Path` to start directly in a directory.
+
+### Home dashboard
+
+| Key | Behavior |
+| --- | --- |
+| `w` | Toggle Home and browser. Available in the command palette. |
+| `F1` | Jump to Home from the browser, preview, help or feature panels. Does not interrupt text-entry or confirmation prompts. |
+| `Tab` | Cycle quick-access folders, file table and drives. |
+| Arrows, `h j k l` | Select an item in the focused area. |
+| `g`, `G` | First / last item in the focused area. |
+| `Enter` | Open a quick folder or drive in the browser; files open rich preview. |
+| `Esc` | Return to the browser. |
+| `/`, `a`, `r`, `d`, `u`, `p`, `:` | Search, create, rename, trash, undo, paste and commands work from Home. |
+
+The dashboard uses the browser's dark background, amber highlights and blue
+folders. Folder cards have tabbed outlines and an amber selection indicator.
+It adapts the sidebar, folder cards, file table and details pane to terminal
+cells. Narrow terminals hide the sidebars; short
+terminals show a compact selection and capacity bar. Home, Downloads, Documents
+and Pictures shortcuts use `$HOME`; unavailable folders report an error.
+
+`src/ui.c:home_dashboard` draws the dashboard and capacity bars.
+`src/input.c:home_input` handles focus and navigation, and reuses existing file
+operations and confirmation prompts. `src/drives.c:drives_read` discovers local
+mounts with `getmntent` and reads capacity with `statvfs`, including WSL Windows
+mounts. Pseudo filesystems, loop devices and duplicate local sources are omitted.
+At most 16 drives are listed. Compact two-line rows show all four drives at
+standard terminal sizes; shorter terminals scroll as a drive is selected.
+`src/main.c` refreshes capacities every five seconds while Home is open; `R`
+requests an immediate refresh. Used space is total minus space available to the
+current user, so reserved filesystem blocks count as occupied. Bars turn amber
+at 85% and red at 95%; monochrome mode uses `#` and `-` characters.
+
 | Option | Behavior |
 | --- | --- |
 | `-a`, `--all` | Include hidden entries. |
 | `--ascii` | Use ASCII interface characters and the compatible image fallback. |
 | `--no-color` | Disable interface colors. |
+| `--home` | Start on the Home dashboard, including when a directory is specified. |
 | `-h`, `--help` | Print command-line usage and exit. |
 | `-v`, `--version` | Print the application version and exit. |
 | `--` | End option parsing, allowing a directory beginning with `-`. |
 
-Normal operation requires interactive terminal input and output. Help and version work without an interactive terminal. Unknown options return exit status 2.
+Normal operation requires interactive terminal input and output. Help and version work without an interactive terminal. Unknown options and multiple starting directories return exit status 2.
 
 ### Windows launcher
 
@@ -61,12 +98,26 @@ Run these examples from the project folder in PowerShell:
 | `-All` | Show hidden files. |
 | `-Ascii` | Enable ASCII mode. |
 | `-NoColor` | Disable colors. |
-| `-Demo` | Generate the demo fixtures and open `test-playground`. |
+| `-Demo` | Generate the demo fixtures and open Home with `test-playground` loaded. |
 | `-ImageRenderer auto` | Probe the terminal for native Sixel support; default. |
 | `-ImageRenderer sixel` | Force Sixel output; use with a terminal that supports it. |
 | `-ImageRenderer blocks` | Use terminal character cells for images. |
 
 `termnav.ps1` builds the application before launching it. Forcing Sixel cannot add graphics support to a terminal that lacks it.
+
+### Install on Linux from GitHub
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | sh
+```
+
+The installer builds the latest `main` branch and installs to `~/.local` by default. If build tools are missing, it installs them through `apt`, `apk`, `dnf`, `pacman`, or `zypper`, requesting root / sudo access when required. Set `TERMNAV_PREFIX` on the installer shell to change the absolute install path. Native Linux and WSL are supported; the program currently depends on Linux system calls and cannot run natively on macOS or Windows.
+
+To remove the user installation:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/uninstall.sh | sh
+```
 
 ## Browser commands
 
@@ -286,7 +337,7 @@ Copying does not preserve ownership, ACLs, extended attributes, hard-link relati
 
 `app_enqueue()` owns the accepted request's source paths and adds it to the FIFO queue. The application supports one active file operation, up to 16 pending requests, and 32 recent completed results. Operation kinds are copy, delete, trash, and restore.
 
-`app_operations_tick()` collects a finished worker, records its result, reloads affected views, and starts the next pending request. `job_start_kind()` creates the worker; `job_collect()` joins it and frees its paths. Worker input is a path snapshot, so it does not depend on a listing that the user may navigate away from.
+`app_operations_tick()` collects a finished worker, records its result, reloads affected views, and starts the next pending request. Directory reload waits until an open prompt closes so its target remains stable. `job_start_kind()` creates the worker; `job_collect()` joins it and frees its paths through the shared `fs_paths_free()` helper. Worker input is a path snapshot, so it does not depend on a listing that the user may navigate away from.
 
 ```text
 queued request → worker planning → running / paused
@@ -422,8 +473,11 @@ Paths below are relative to the project root.
 | `src/editor.c` | External editor launch and terminal suspension / restoration. |
 | `scripts/preview_helper.py` | Pillow image conversion, PDF text extraction, archive listings. |
 | `termnav.ps1` | Windows / WSL path conversion, build and launch options. |
+| `scripts/install.sh`, `uninstall.sh` | One-command Linux installation from GitHub and removal from the selected prefix. |
 | `Makefile` | Compilation, tests, installation, demo and cleanup. |
 | `tests/` | Filesystem / feature / encoder tests and interactive terminal integration tests. |
+| `tests/test_app.c` | Application-state regression tests for prompts and background completion. |
+| `tests/terminal_support.py`, `image_support.py` | Shared terminal driver and independent graphics decoder for tests and captures. |
 | `scripts/create_demo.py` | Disposable demo fixture generation. |
 | `scripts/capture_tui.py`, `render_tui.py` | Capture and render terminal sessions for visual inspection. |
 | `scripts/capture_image_native.py` | Capture and reconstruct native image protocol output for inspection. |
@@ -464,7 +518,7 @@ These commands run inside Linux / WSL from the project root. Core compilation re
 | Command | Purpose |
 | --- | --- |
 | `make` / `make all` | Compile the application. Header dependency files allow incremental rebuilding. |
-| `make test` | Run C filesystem, feature, and Sixel encoder tests. |
+| `make test` | Run C filesystem, feature, Sixel encoder, and application-state tests. |
 | `make integration` | Run browser, feature-panel, and image-preview terminal integration tests. |
 | `make check` | Run unit and integration tests. |
 | `make sanitize` | Clean, rebuild, and check with AddressSanitizer and UndefinedBehaviorSanitizer. Requires compatible compiler runtimes. |

@@ -23,6 +23,7 @@ void fs_parent(char out[PATH_MAX], const char *path);
 const char *fs_basename(const char *path);
 int fs_list(Listing *out, const char *path, bool hidden, int sort);
 void fs_free(Listing *listing);
+void fs_paths_free(char **paths, size_t count);
 int fs_mkdir(const char *dir, const char *name);
 int fs_rename(const char *dir, const char *old_name, const char *new_name);
 /* Copy/delete take absolute paths. Recursive operations never follow symlinks. */

@@ -18,6 +18,9 @@ int main(void) {
     char data[PATH_MAX],file[PATH_MAX],link[PATH_MAX],outside[PATH_MAX],record[PATH_MAX],restored[PATH_MAX];
     assert(!fs_join(data,root,"data")); assert(!setenv("XDG_DATA_HOME",data,1));
     assert(!fs_join(file,root,"original.txt")); write_file(file);
+    /* Trash metadata must remain reachable after every move. */
+    assert(trash_put(data,1)<0 && errno==EINVAL);
+    assert(!access(data,F_OK));
     assert(!trash_put(file,42)); assert(access(file,F_OK)<0);
     TrashList list={0}; assert(!trash_list(&list)); assert(list.count==1 && list.entries[0].batch==42);
     strcpy(record,list.entries[0].record); write_file(file);
@@ -62,6 +65,9 @@ int main(void) {
     atomic_store(&job.paused,false); usleep(1000); atomic_store(&job.cancel,true);
     while (!atomic_load(&job.done)) usleep(1000);
     assert(job.error==ECANCELED); assert(job_collect(&job));
+    paths=calloc(1,sizeof(*paths)); assert(paths); paths[0]=strdup(tree); assert(paths[0]);
+    assert(!job_start_kind(&job,paths,1,destination,JOB_COPY));
+    job_finish(&job); assert(!job.started && !job.sources && !job.count);
     assert(!fs_delete(root,NULL,NULL));
     puts("PASS: persistent trash, collision protection, symlink recovery, undo workers, bounded history, command search, disk scan and cancellation"); return 0;
 }

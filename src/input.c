@@ -7,7 +7,6 @@
 #include <wchar.h>
 #include <wctype.h>
 
-static void free_paths(char **paths, size_t n) { for (size_t i = 0; i < n; ++i) free(paths[i]); free(paths); }
 static char **targets(App *a, size_t *count) {
     *count = 0;
     for (size_t i = 0; i < a->current.count; ++i) if (a->current.entries[i].marked) ++*count;
@@ -17,7 +16,7 @@ static char **targets(App *a, size_t *count) {
     size_t n = 0; bool marked = false;
     for (size_t i = 0; i < a->current.count; ++i) if (a->current.entries[i].marked) {
         char path[PATH_MAX]; marked = true;
-        if (fs_join(path, a->current.path, a->current.entries[i].name) < 0 || !(paths[n] = strdup(path))) { free_paths(paths, n); return NULL; } ++n;
+        if (fs_join(path, a->current.path, a->current.entries[i].name) < 0 || !(paths[n] = strdup(path))) { fs_paths_free(paths, n); return NULL; } ++n;
     }
     if (!marked) {
         char path[PATH_MAX];
@@ -28,7 +27,7 @@ static char **targets(App *a, size_t *count) {
 static void clipboard(App *a) {
     size_t n; char **paths = targets(a, &n);
     if (!paths) { app_message(a, true, "No selection or insufficient memory"); return; }
-    free_paths(a->clipboard, a->clipboard_count); a->clipboard = paths; a->clipboard_count = n;
+    fs_paths_free(a->clipboard, a->clipboard_count); a->clipboard = paths; a->clipboard_count = n;
     app_message(a, false, "Copied %zu %s to clipboard · p to paste", n, n == 1 ? "path" : "paths");
 }
 static void start_copy(App *a, const char *destination, bool from_clipboard) {
@@ -41,10 +40,10 @@ static void start_copy(App *a, const char *destination, bool from_clipboard) {
         count = a->clipboard_count;
         if (!count) { app_message(a, true, "Clipboard is empty · select files and press y"); return; }
         paths = calloc(count, sizeof(*paths)); if (!paths) { app_message(a, true, "Insufficient memory"); return; }
-        for (size_t i = 0; i < count; ++i) if (!(paths[i] = strdup(a->clipboard[i]))) { free_paths(paths, i); app_message(a, true, "Insufficient memory"); return; }
+        for (size_t i = 0; i < count; ++i) if (!(paths[i] = strdup(a->clipboard[i]))) { fs_paths_free(paths, i); app_message(a, true, "Insufficient memory"); return; }
     } else paths = targets(a, &count);
     if (!paths) { app_message(a, true, "No selection or insufficient memory"); return; }
-    if (app_enqueue(a, paths, count, resolved, JOB_COPY) < 0) { free_paths(paths, count); app_message(a, true, "Copy: %s", strerror(errno)); }
+    if (app_enqueue(a, paths, count, resolved, JOB_COPY) < 0) { fs_paths_free(paths, count); app_message(a, true, "Copy: %s", strerror(errno)); }
 }
 static void prompt(App *a, InputMode mode, const char *initial) {
     a->mode = mode; snprintf(a->input, sizeof(a->input), "%s", initial ? initial : "");
@@ -56,7 +55,7 @@ static void submit(App *a) {
         if (strcmp(a->input, mode == TRASH_INPUT ? "trash" : "delete")) { app_message(a, false, "Operation cancelled"); return; }
         size_t count; char **paths = targets(a, &count);
         if (!paths) { app_message(a, true, "No selection or insufficient memory"); return; }
-        if (app_enqueue(a, paths, count, NULL, mode == TRASH_INPUT ? JOB_TRASH : JOB_DELETE) < 0) { free_paths(paths, count); app_message(a, true, "Operation: %s", strerror(errno)); }
+        if (app_enqueue(a, paths, count, NULL, mode == TRASH_INPUT ? JOB_TRASH : JOB_DELETE) < 0) { fs_paths_free(paths, count); app_message(a, true, "Operation: %s", strerror(errno)); }
         return;
     }
     if (mode == QUIT_INPUT) {
@@ -64,6 +63,9 @@ static void submit(App *a) {
         return;
     }
     if (!a->input[0]) return;
+    if (a->job.started && (mode == MKDIR_INPUT || mode == RENAME_INPUT)) {
+        app_message(a, true, "Wait for the current job, or Esc to cancel it"); return;
+    }
     if (mode == MKDIR_INPUT) {
         if (fs_mkdir(a->current.path, a->input) < 0) app_message(a, true, "Create directory: %s", strerror(errno));
         else { app_reload(a, a->input); app_message(a, false, "Directory created"); }
@@ -149,7 +151,7 @@ static void panel_input(App *a, wint_t key, bool special) {
             else {
                 size_t queued = a->panel_cursor - (a->job.started ? 1 : 0);
                 if (queued < a->queue_count) {
-                    free_paths(a->queue[queued].sources, a->queue[queued].count);
+                    fs_paths_free(a->queue[queued].sources, a->queue[queued].count);
                     memmove(a->queue + queued, a->queue + queued + 1, (a->queue_count - queued - 1) * sizeof(*a->queue)); --a->queue_count;
                     app_message(a, false, "Queued operation cancelled");
                 }
@@ -160,7 +162,7 @@ static void panel_input(App *a, wint_t key, bool special) {
         if ((key == '\n' || (special && key == KEY_ENTER)) && count) {
             char **paths = calloc(1, sizeof(*paths));
             if (!paths || !(paths[0] = strdup(a->trash.entries[a->panel_cursor].record))) { free(paths); app_message(a, true, "Insufficient memory"); return; }
-            if (app_enqueue(a, paths, 1, NULL, JOB_RESTORE) < 0) { free_paths(paths, 1); app_message(a, true, "Restore: %s", strerror(errno)); }
+            if (app_enqueue(a, paths, 1, NULL, JOB_RESTORE) < 0) { fs_paths_free(paths, 1); app_message(a, true, "Restore: %s", strerror(errno)); }
         } else if (key == 'u') app_undo(a);
         else if (key == 'R') trash_list(&a->trash);
     } else if (a->panel == PANEL_USAGE) {
@@ -176,11 +178,52 @@ static void panel_input(App *a, wint_t key, bool special) {
         }
     }
 }
+const char *app_quick_folder(size_t index) {
+    static const char *names[] = {"Home", "Downloads", "Documents", "Pictures"};
+    return names[index < 4 ? index : 0];
+}
+int app_quick_path(char path[PATH_MAX], size_t index) {
+    const char *home = getenv("HOME");
+    if (!home || !*home) { errno = ENOENT; return -1; }
+    if (!index) { snprintf(path, PATH_MAX, "%s", home); return 0; }
+    return fs_join(path, home, app_quick_folder(index));
+}
+static void home_input(App *a, wint_t key, bool special) {
+    if (key == 'w' || key == 27) { a->panel = PANEL_NONE; return; }
+    if (key == '\t') { a->home_focus = (a->home_focus + 1) % 3; return; }
+    size_t *cursor = a->home_focus == 0 ? &a->home_folder : a->home_focus == 2 ? &a->home_drive : &a->cursor;
+    size_t count = a->home_focus == 0 ? 4 : a->home_focus == 2 ? a->drives.count : a->visible_count;
+    if (key == 'j' || key == 'l' || (special && (key == KEY_DOWN || key == KEY_RIGHT))) { if (*cursor + 1 < count) ++*cursor; return; }
+    if (key == 'k' || key == 'h' || (special && (key == KEY_UP || key == KEY_LEFT))) { if (*cursor) --*cursor; return; }
+    if (key == 'g' || (special && key == KEY_HOME)) { *cursor = 0; return; }
+    if (key == 'G' || (special && key == KEY_END)) { *cursor = count ? count - 1 : 0; return; }
+    if (key == '\n' || key == '\r' || (special && key == KEY_ENTER)) {
+        char path[PATH_MAX];
+        if (a->home_focus == 0) {
+            if (app_quick_path(path, a->home_folder) < 0 || app_navigate(a, path, NULL) < 0) { app_message(a, true, "Folder unavailable: %s", strerror(errno)); return; }
+        } else if (a->home_focus == 2) {
+            if (!count || app_navigate(a, a->drives.items[a->home_drive].path, NULL) < 0) return;
+        } else { a->panel = PANEL_NONE; app_input(a, key, special); return; }
+        a->panel = PANEL_NONE; return;
+    }
+    /* Reuse the browser's actions and confirmation prompts on the file table. */
+    if (key == '/') a->home_focus = 1;
+    a->panel = PANEL_NONE;
+    app_input(a, key, special);
+    if (a->panel == PANEL_NONE && !a->preview_full) a->panel = PANEL_HOME;
+    if (key == 'R') a->drives_refreshed = 0;
+}
 void app_input(App *a, wint_t key, bool special) {
     if (special && key == KEY_RESIZE) return;
+    if (special && key == KEY_F(1) && a->mode == NORMAL) {
+        if (a->panel == PANEL_USAGE) usage_stop(&a->usage);
+        a->panel = PANEL_HOME; a->preview_full = a->help = a->pending_g = false;
+        a->drives_refreshed = 0; return;
+    }
     if (a->mode == PALETTE_INPUT) { palette_input(a, key, special); return; }
     if (a->mode == NORMAL && key == ':') { prompt(a, PALETTE_INPUT, ""); a->palette_cursor = 0; return; }
-    if (a->panel != PANEL_NONE) { panel_input(a, key, special); return; }
+    if (a->panel == PANEL_HOME && a->mode == NORMAL && !a->help) { home_input(a, key, special); return; }
+    if (a->panel != PANEL_NONE && a->panel != PANEL_HOME) { panel_input(a, key, special); return; }
     if (a->preview_full) { viewer_input(a, key, special); return; }
     if (a->help) { if (key == '?' || key == 27 || key == 'q' || key == '\n') a->help = false; return; }
     if (a->mode != NORMAL) {
@@ -204,7 +247,8 @@ void app_input(App *a, wint_t key, bool special) {
     bool g = a->pending_g; a->pending_g = false;
     Entry *e = app_selected(a);
     int page = a->center ? getmaxy(a->center) - 5 : 10; if (page < 1) page = 1;
-    if (key == '\t') { if (e) a->preview_full = true; }
+    if (key == 'w') { a->panel = PANEL_HOME; a->drives_refreshed = 0; }
+    else if (key == '\t') { if (e) a->preview_full = true; }
     else if (key == 'q') { if (a->job.started || a->queue_count) prompt(a, QUIT_INPUT, ""); else a->quit = true; }
     else if (key == '?') a->help = true;
     else if (key == 27) {

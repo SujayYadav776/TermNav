@@ -34,8 +34,8 @@ static void *worker(void *ctx) {
         char dst[PATH_MAX]; int r;
         if (should_cancel(job)) { job->error = ECANCELED; break; }
         if (job->kind == JOB_DELETE) r = fs_delete(job->sources[i], update, job);
-        else if (job->kind == JOB_TRASH) { r = trash_put(job->sources[i], job->batch); if (!r) update(0, 1, job); }
-        else if (job->kind == JOB_RESTORE) { r = trash_restore(job->sources[i], dst); if (!r) update(0, 1, job); }
+        else if (job->kind == JOB_TRASH) { r = trash_put(job->sources[i], job->batch); if (!r && update(0, 1, job)) { errno = ECANCELED; r = -1; } }
+        else if (job->kind == JOB_RESTORE) { r = trash_restore(job->sources[i], dst); if (!r && update(0, 1, job)) { errno = ECANCELED; r = -1; } }
         else {
             r = fs_join(dst, job->destination, fs_basename(job->sources[i]));
             if (!r) r = fs_copy(job->sources[i], dst, update, job);
@@ -51,14 +51,14 @@ int job_start(Job *job, char **sources, size_t count, const char *destination, b
 }
 int job_start_kind(Job *job, char **sources, size_t count, const char *destination, JobKind kind) {
     if (job->started || !count) { errno = EBUSY; return -1; }
-    job->sources = sources; job->count = count; job->kind = kind; job->deleting = kind == JOB_DELETE;
+    job->sources = sources; job->count = count; job->kind = kind;
     struct timespec now; clock_gettime(CLOCK_REALTIME, &now); job->batch = (uint64_t)now.tv_sec * 1000000000u + (uint64_t)now.tv_nsec;
     clock_gettime(CLOCK_MONOTONIC, &job->begun);
     snprintf(job->destination, sizeof(job->destination), "%s", destination ? destination : "");
     job->error = 0; job->failed[0] = 0;
     atomic_store(&job->bytes, 0); atomic_store(&job->files, 0);
     atomic_store(&job->total_bytes, 0); atomic_store(&job->total_files, 0); atomic_store(&job->paused, false); atomic_store(&job->planning, false);
-    atomic_store(&job->cancel, false); atomic_store(&job->done, false); atomic_store(&job->running, true);
+    atomic_store(&job->cancel, false); atomic_store(&job->done, false);
     /* musl's default thread stack is small; bound recursion and reserve 2 MiB. */
     pthread_attr_t attr;
     int err = pthread_attr_init(&attr);
@@ -67,19 +67,17 @@ int job_start_kind(Job *job, char **sources, size_t count, const char *destinati
         if (!err) err = pthread_create(&job->thread, &attr, worker, job);
         pthread_attr_destroy(&attr);
     }
-    if (err) { atomic_store(&job->running, false); job->sources = NULL; job->count = 0; errno = err; return -1; }
+    if (err) { job->sources = NULL; job->count = 0; errno = err; return -1; }
     job->started = true; return 0;
 }
 bool job_collect(Job *job) {
     if (!job->started || !atomic_load(&job->done)) return false;
     pthread_join(job->thread, NULL);
-    for (size_t i = 0; i < job->count; ++i) free(job->sources[i]);
-    free(job->sources); job->sources = NULL; job->count = 0;
-    job->started = false; atomic_store(&job->running, false); return true;
+    fs_paths_free(job->sources, job->count); job->sources = NULL; job->count = 0;
+    job->started = false; return true;
 }
 void job_finish(Job *job) {
     if (!job->started) return;
     atomic_store(&job->cancel, true); pthread_join(job->thread, NULL);
-    for (size_t i = 0; i < job->count; ++i) free(job->sources[i]);
-    free(job->sources); job->sources = NULL; job->started = false;
+    fs_paths_free(job->sources, job->count); job->sources = NULL; job->count = 0; job->started = false;
 }

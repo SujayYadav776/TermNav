@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void paths_free(char **paths, size_t count) { for (size_t i = 0; i < count; ++i) free(paths[i]); free(paths); }
 double app_job_seconds(const App *a) {
     struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
     double elapsed = (double)(now.tv_sec - a->job.begun.tv_sec) + (double)(now.tv_nsec - a->job.begun.tv_nsec) / 1000000000.0;
@@ -30,20 +29,22 @@ void app_operations_tick(App *a) {
         job_collect(&a->job);
         if (a->operation_count == OP_LOG_MAX) { memmove(a->operations, a->operations + 1, (OP_LOG_MAX - 1) * sizeof(*a->operations)); --a->operation_count; }
         a->operations[a->operation_count++] = completed;
-        app_reload(a, NULL);
+        a->reload_pending = true;
         if (completed.error) app_message(a, true, "%s #%u: %s · completed changes kept", job_name(completed.kind), completed.id, strerror(completed.error));
         else app_message(a, false, "%s #%u complete · %llu items%s", job_name(completed.kind), completed.id, (unsigned long long)completed.files, completed.kind == JOB_TRASH ? " · u to undo" : "");
         if (a->panel == PANEL_TRASH) trash_list(&a->trash);
     }
+    /* Keep confirmation and rename targets stable while the user types. */
+    if (a->reload_pending && a->mode == NORMAL) { app_reload(a, NULL); a->reload_pending = false; }
     if (!a->job.started && a->queue_count) {
         PendingOp op = a->queue[0]; memmove(a->queue, a->queue + 1, (--a->queue_count) * sizeof(*a->queue));
         if (job_start_kind(&a->job, op.sources, op.count, op.destination, op.kind) < 0) {
-            paths_free(op.sources, op.count); app_message(a, true, "Could not start %s: %s", job_name(op.kind), strerror(errno));
+            fs_paths_free(op.sources, op.count); app_message(a, true, "Could not start %s: %s", job_name(op.kind), strerror(errno));
         } else { a->active_op = op.id; snprintf(a->active_label, sizeof(a->active_label), "%s", op.label); }
     }
 }
 void app_operations_finish(App *a) {
-    for (size_t i = 0; i < a->queue_count; ++i) paths_free(a->queue[i].sources, a->queue[i].count);
+    for (size_t i = 0; i < a->queue_count; ++i) fs_paths_free(a->queue[i].sources, a->queue[i].count);
     a->queue_count = 0; job_finish(&a->job);
 }
 void app_undo(App *a) {
@@ -57,9 +58,9 @@ void app_undo(App *a) {
     size_t n = 0;
     for (size_t i = 0; i < list.count; ++i) if (list.entries[i].batch == batch) {
         paths[n] = strdup(list.entries[i].record);
-        if (!paths[n]) { paths_free(paths, n); trash_free(&list); app_message(a, true, "Insufficient memory"); return; } ++n;
+        if (!paths[n]) { fs_paths_free(paths, n); trash_free(&list); app_message(a, true, "Insufficient memory"); return; } ++n;
     }
-    if (app_enqueue(a, paths, count, NULL, JOB_RESTORE) < 0) { paths_free(paths, count); app_message(a, true, "Restore: %s", strerror(errno)); }
+    if (app_enqueue(a, paths, count, NULL, JOB_RESTORE) < 0) { fs_paths_free(paths, count); app_message(a, true, "Restore: %s", strerror(errno)); }
     trash_free(&list);
 }
 void app_trash_open(App *a) {

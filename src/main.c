@@ -79,7 +79,7 @@ void app_preview(App *a, bool force) {
     if (image_width>1280) image_width=1280;
     if (image_height>960) image_height=960;
     bool image=rich_mode(e) && !strcmp(rich_mode(e),"image");
-    if (rich_mode(e) && same && !strcmp(path, a->rich.path) && (!image || (a->rich.width==image_width && a->rich.height==image_height && a->rich.sixel==a->sixel)) && e->st.st_size == a->rich.signature.st_size && e->st.st_mtim.tv_sec == a->rich.signature.st_mtim.tv_sec && e->st.st_mtim.tv_nsec == a->rich.signature.st_mtim.tv_nsec && e->st.st_ino == a->rich.signature.st_ino) return;
+    if (rich_mode(e) && same && !strcmp(path, a->rich.path) && (!image || (a->rich.width==image_width && a->rich.height==image_height && a->rich.sixel==a->sixel)) && e->st.st_size == a->rich.signature.st_size && e->st.st_mtim.tv_sec == a->rich.signature.st_mtim.tv_sec && e->st.st_mtim.tv_nsec == a->rich.signature.st_mtim.tv_nsec && e->st.st_ino == a->rich.signature.st_ino && e->st.st_dev == a->rich.signature.st_dev) return;
     if (!force && same) return;
     if (!same) a->preview_scroll = a->preview_column = 0;
     rich_stop(&a->rich);
@@ -105,40 +105,46 @@ void app_config(App *a) {
     fclose(f);
 }
 static void usage(void) {
-    puts("TermNav " TERMNAV_VERSION " — a quiet place for your files\n\nUsage: termnav [options] [directory]\n\n  -a, --all       Show hidden files\n  --ascii         Plain ASCII symbols\n  --no-color      Disable color\n  -h, --help      Show this help\n  -v, --version   Show version\n\nIn the app: ? for keys, q to quit. Linux + ncursesw.");
+    puts("TermNav " TERMNAV_VERSION " — a quiet place for your files\n\nUsage: termnav [options] [directory]\n\n  -a, --all       Show hidden files\n  --ascii         Plain ASCII symbols\n  --no-color      Disable color\n  --home          Start on the Home dashboard\n  -h, --help      Show this help\n  -v, --version   Show version\n\nIn the app: ? for keys, q to quit. Linux + ncursesw.");
 }
 int main(int argc, char **argv) {
     setlocale(LC_ALL, ""); App a = {0}; app_config(&a);
     a.no_color = getenv("NO_COLOR") != NULL;
-    const char *path = ".";
+    const char *path = "."; bool directory_given = false, start_home = false;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) { usage(); return 0; }
         if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) { puts("termnav " TERMNAV_VERSION); return 0; }
         if (!strcmp(argv[i], "-a") || !strcmp(argv[i], "--all")) a.hidden = true;
         else if (!strcmp(argv[i], "--ascii")) a.ascii = true;
         else if (!strcmp(argv[i], "--no-color")) a.no_color = true;
-        else if (!strcmp(argv[i], "--")) { if (++i < argc) path = argv[i]; if (i + 1 < argc) { usage(); return 2; } break; }
+        else if (!strcmp(argv[i], "--home")) start_home = true;
+        else if (!strcmp(argv[i], "--")) { if (++i < argc) { if (directory_given) { usage(); return 2; } path = argv[i]; directory_given = true; } if (i + 1 < argc) { usage(); return 2; } break; }
         else if (argv[i][0] == '-') { fprintf(stderr, "termnav: unknown option: %s\n", argv[i]); return 2; }
-        else path = argv[i];
+        else { if (directory_given) { usage(); return 2; } path = argv[i]; directory_given = true; }
     }
     if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) { fputs("termnav: interactive terminal required (use --help for usage)\n", stderr); return 2; }
     if (app_navigate(&a, path, NULL) < 0) { fprintf(stderr, "termnav: %s\n", a.message); return 1; }
+    if (start_home || !directory_given) a.panel = PANEL_HOME;
     struct sigaction sa = {0}; sa.sa_handler = stop; sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL); sigaction(SIGTERM, &sa, NULL); sigaction(SIGHUP, &sa, NULL);
     if (ui_init(&a) < 0) { rich_stop(&a.rich); fs_free(&a.current); fs_free(&a.parent); preview_free(&a.preview); free(a.visible); return 1; }
     app_message(&a, false, "Welcome. Press ? to find your way around.");
     while (!a.quit && !stopping) {
+        if (a.panel == PANEL_HOME && time(NULL) - a.drives_refreshed >= 5) {
+            if (drives_read(&a.drives) < 0) app_message(&a, true, "Cannot read mounted drives");
+            a.drives_refreshed = time(NULL);
+            if (a.home_drive >= a.drives.count) a.home_drive = 0;
+        }
         if (rich_collect(&a.rich,&a.preview)) ++a.image_revision;
         app_operations_tick(&a);
         /* Periodic refresh notices changes made by other programs without losing selection. */
-        if (a.mode == NORMAL && !a.help && !a.preview_full && a.panel == PANEL_NONE && !a.job.started && time(NULL) - a.last_refresh >= 2) app_reload(&a, NULL);
+        if (a.mode == NORMAL && !a.help && !a.preview_full && (a.panel == PANEL_NONE || a.panel == PANEL_HOME) && !a.job.started && time(NULL) - a.last_refresh >= 2) app_reload(&a, NULL);
         ui_render(&a); wint_t key; int r = get_wch(&key);
         if (r != ERR) app_input(&a, key, r == KEY_CODE_YES);
         ++a.ticks;
     }
     app_operations_finish(&a); rich_stop(&a.rich); usage_destroy(&a.usage); trash_free(&a.trash); ui_shutdown(&a);
     fs_free(&a.current); fs_free(&a.parent); preview_free(&a.preview); free(a.visible);
-    for (size_t i = 0; i < a.clipboard_count; ++i) free(a.clipboard[i]);
-    free(a.clipboard);
+    fs_paths_free(a.clipboard, a.clipboard_count);
     return 0;
 }

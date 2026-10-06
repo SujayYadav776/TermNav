@@ -1,6 +1,8 @@
 # A three-minute walkthrough
 
-Run `make demo` on Linux or `.\termnav.ps1 -Demo` from PowerShell. The fixture
+Run `make demo` on Linux or `.\termnav.ps1 -Demo` from PowerShell. Both start
+on the Home dashboard; press `w` to open the browser or `F1` to return to Home.
+The fixture
 generator creates missing files only and never overwrites existing work.
 
 1. Start wide (140 columns if available). Show parent, files, and directory

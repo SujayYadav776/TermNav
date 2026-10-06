@@ -45,6 +45,7 @@ const char *preview_format(const Preview *p) {
     return "TEXT";
 }
 int preview_index(Preview *p) {
+    free(p->line_offsets); p->line_offsets = NULL;
     p->lines = 0;
     for (size_t i = 0; i < p->bytes; ++i) if (p->data[i] == '\n') ++p->lines;
     if (p->bytes && p->data[p->bytes - 1] != '\n') ++p->lines;
@@ -96,16 +97,10 @@ void preview_load(Preview *p, const char *path, const Entry *entry, bool hidden)
         unsigned char c = (unsigned char)p->data[i];
         if (c == 0) { p->kind = PREVIEW_BINARY; return; }
         if (c < 32 && c != '\n' && c != '\r' && c != '\t') ++control;
-        if (c == '\n') ++p->lines;
     }
-    if (p->bytes && p->data[p->bytes - 1] != '\n') ++p->lines;
     p->kind = control > p->bytes / 100 ? PREVIEW_BINARY : PREVIEW_TEXT;
     if (p->kind == PREVIEW_TEXT) {
         p->syntax = syntax(p);
-        p->line_offsets = malloc((p->lines ? p->lines : 1) * sizeof(*p->line_offsets));
-        if (!p->line_offsets) { errno = ENOMEM; failure(p); return; }
-        size_t row = 0;
-        if (p->lines) p->line_offsets[row++] = 0;
-        for (size_t i = 0; i < p->bytes && row < p->lines; ++i) if (p->data[i] == '\n') p->line_offsets[row++] = i + 1;
+        if (preview_index(p) < 0) failure(p);
     }
 }

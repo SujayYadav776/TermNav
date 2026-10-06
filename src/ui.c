@@ -12,6 +12,8 @@
 #include <unistd.h>
 
 enum { INK = 1, MUTED, ACCENT, BLUE, GREEN, CYAN, RED, SELECTED, PANEL, BAR, STRING, COMMENT };
+enum { HOME_BASE = INK, HOME_MUTED = MUTED, HOME_ACCENT = ACCENT, HOME_SELECTED = SELECTED,
+       HOME_BLUE = BLUE, HOME_GOOD = BLUE, HOME_WARN = ACCENT, HOME_BAD = RED, HOME_TRACK = PANEL };
 static int color(App *a, int pair) { return a->no_color ? 0 : COLOR_PAIR(pair); }
 static void pane_border(App *a, WINDOW *w) {
     if (a->ascii) { wborder(w, '|', '|', '-', '-', '+', '+', '+', '+'); return; }
@@ -298,7 +300,7 @@ static void help(App *a) {
     WINDOW *w = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2); if (!w) return;
     wbkgd(w, color(a, INK)); werase(w); wattrset(w, color(a, ACCENT)); pane_border(a, w);
     text(w, 1, 3, width - 6, "Find your way around", color(a, ACCENT) | A_BOLD);
-    text(w, 2, 3, width - 6, "TermNav  /  keyboard-first file management", color(a, MUTED));
+    text(w, 2, 3, width - 6, "F1 Home / w toggle Home / Tab switch areas on Home", color(a, MUTED));
     const char *keys[] = {"j k / arrows", "h l / Enter", "gg / G", "J K / Tab", "/ / :", ". / s / R", "Space / v", "y p / c", "a / r", "d / u / T", "X", "t / D", "b f / H", "o ~ / e", "Esc", "q"};
     const char *desc[] = {"Move selection", "Parent / enter; file opens preview", "First / last item", "Scroll preview / expand to full screen", "Filter files / command palette", "Hidden files / sort / refresh", "Mark one / mark visible items", "Clipboard copy / copy to a directory", "Create directory / rename", "Trash / undo / browse trash", "Permanent delete; type delete to confirm", "Operations dashboard / disk usage", "Directory back/forward / history", "Go to directory/home / editor", "Clear filter & marks / cancel job", "Quit (confirms active or queued jobs)"};
     int available = height - 7;
@@ -308,6 +310,146 @@ static void help(App *a) {
     }
     text(w, height - 2, 3, width - 6, "? / Esc / Enter  close  ·  Full key reference in README", color(a, MUTED));
     wnoutrefresh(w); delwin(w);
+}
+static int home_color(App *a, int pair) {
+    if (a->no_color) return pair == HOME_SELECTED ? A_REVERSE : 0;
+    return color(a, pair);
+}
+static void home_fill(App *a, WINDOW *w, int y, int x, int height, int width, int pair) {
+    wattrset(w, home_color(a, pair));
+    for (int row = y; row < y + height && row < getmaxy(w); ++row) mvwhline(w, row, x, ' ', width);
+}
+static void home_bar(App *a, WINDOW *w, int y, int x, int width, double used) {
+    int filled = (int)(used * width);
+    int pair = used >= .95 ? HOME_BAD : used >= .85 ? HOME_WARN : HOME_GOOD;
+    for (int i = 0; i < width; ++i)
+        text(w,y,x+i,1,a->ascii || a->no_color ? (i < filled ? "#" : "-") : (i < filled ? "━" : "─"),home_color(a,i < filled ? pair : HOME_TRACK));
+}
+static void home_folder(App *a, WINDOW *w, int y, int x, int width, size_t index) {
+    bool selected = a->home_focus == 0 && a->home_folder == index;
+    int attr = home_color(a,selected ? HOME_ACCENT : HOME_BLUE) | (selected ? A_BOLD : 0);
+    int tab = width / 3;
+    text(w,y,x,1,a->ascii ? "+" : "╭",attr);
+    for(int i=1;i<tab;++i) text(w,y,x+i,1,a->ascii ? "-" : "─",attr);
+    text(w,y,x+tab,1,a->ascii ? "+" : "╮",attr);
+    text(w,y+1,x,1,a->ascii ? "|" : "│",attr);
+    text(w,y+1,x+tab,1,a->ascii ? "+" : "╰",attr);
+    for(int i=tab+1;i<width-1;++i) text(w,y+1,x+i,1,a->ascii ? "-" : "─",attr);
+    text(w,y+1,x+width-1,1,a->ascii ? "+" : "╮",attr);
+    for(int row=2;row<4;++row) {
+        text(w,y+row,x,1,a->ascii ? "|" : "│",attr);
+        text(w,y+row,x+width-1,1,a->ascii ? "|" : "│",attr);
+    }
+    text(w,y+2,x+2,width-4,app_quick_folder(index),attr|A_BOLD);
+    text(w,y+3,x+2,width-4,selected ? "> Open" : "Folder",home_color(a,selected ? HOME_ACCENT : HOME_MUTED));
+    text(w,y+4,x,1,a->ascii ? "+" : "╰",attr);
+    for(int i=1;i<width-1;++i) text(w,y+4,x+i,1,a->ascii ? "-" : "─",attr);
+    text(w,y+4,x+width-1,1,a->ascii ? "+" : "╯",attr);
+}
+static void home_dashboard(App *a) {
+    WINDOW *w = a->viewer; if (!w) return;
+    int width = getmaxx(w), height = getmaxy(w);
+    int nav = width >= 90 && height >= 15 ? 20 : 0, detail = width >= 120 && height >= 20 ? 27 : 0;
+    int x = nav + 2, content = width - nav - detail - 4;
+    wbkgd(w, home_color(a, HOME_BASE)); werase(w); touchwin(w);
+    if (height < 12) {
+        text(w,0,2,width-4,"HOME / Tab: folders, files, drives",home_color(a,HOME_ACCENT)|A_BOLD);
+        const char *selected=a->home_focus==0 ? app_quick_folder(a->home_folder) : a->home_focus==1 ? (app_selected(a) ? app_selected(a)->name : "No files") : "Drive selected";
+        text(w,1,2,width-4,selected,home_color(a,HOME_BASE)|A_BOLD);
+        if(a->drives.count) {
+            Drive *d=&a->drives.items[a->home_drive]; char total[24],available[24],label[PATH_MAX+80];
+            fs_size(total,sizeof(total),(off_t)d->total); fs_size(available,sizeof(available),(off_t)d->available);
+            text(w,3,2,width-4,d->path,home_color(a,HOME_ACCENT));
+            home_bar(a,w,4,2,width-4,1.0-(double)d->available/(double)d->total);
+            snprintf(label,sizeof(label),"%s free of %s",available,total); text(w,5,2,width-4,label,home_color(a,HOME_MUTED));
+        }
+        wnoutrefresh(w); return;
+    }
+    if (nav) {
+        text(w,1,2,17,"TermNav",home_color(a,HOME_ACCENT)|A_BOLD);
+        text(w,3,2,17,"WORKSPACE",home_color(a,HOME_MUTED));
+        const char *labels[] = {"w  Home", "o  Open location", "H  Recent folders", "t  Operations", "T  Trash", "D  Disk explorer"};
+        for (int i=0;i<6 && i+5<height;++i) text(w,i+5,2,17,labels[i],home_color(a,i ? HOME_BASE : HOME_ACCENT)|(!i ? A_BOLD : 0));
+        text(w,height-3,2,17,":  Commands",home_color(a,HOME_ACCENT));
+        text(w,height-2,2,17,"?  Keyboard help",home_color(a,HOME_MUTED));
+        for(int row=0;row<height;++row) text(w,row,nav-1,1,a->ascii ? "|" : "│",home_color(a,HOME_MUTED));
+    }
+    text(w,1,x,content,"Home / Your workspace",home_color(a,HOME_BASE)|A_BOLD);
+    char line[PATH_MAX+64]; snprintf(line,sizeof(line),"%zu items   %s   a New folder   / Search",a->visible_count,a->sort == 1 ? "Size" : a->sort == 2 ? "Modified" : "Name");
+    text(w,2,x,content,line,home_color(a,HOME_MUTED));
+    bool cards = height >= 22 && content >= 52;
+    text(w,4,x,content,a->home_focus == 0 ? "> QUICK ACCESS" : "QUICK ACCESS",home_color(a,HOME_ACCENT)|A_BOLD);
+    int card_width = content/4;
+    for (size_t i=0;i<4;++i) {
+        int cx = x+(int)i*card_width, cw = card_width-1;
+        if (cards) {
+            home_folder(a,w,5,cx,cw,i);
+        } else text(w,5,cx,cw,app_quick_folder(i),home_color(a,a->home_focus == 0 && a->home_folder == i ? HOME_SELECTED : HOME_BASE)|A_BOLD);
+    }
+    /* Small terminals prioritize drives; larger ones retain the full table. */
+    int table_y = cards ? 11 : 7;
+    int drive_rows = (height-table_y-4)/2;
+    if (drive_rows < 1) drive_rows = 1;
+    if (a->drives.count && (size_t)drive_rows > a->drives.count) drive_rows = (int)a->drives.count;
+    int drive_y = height - drive_rows*2 - 1;
+    int rows = drive_y-table_y-2;
+    if (rows > 0) {
+        text(w,table_y,x,content,a->home_focus == 1 ? "> FILES / Enter open   p Paste   s Sort" : "FILES / Enter open   p Paste   s Sort",home_color(a,HOME_ACCENT)|A_BOLD);
+        text(w,table_y+1,x,content,"Name",home_color(a,HOME_MUTED));
+        if(content>45) text(w,table_y+1,x+content-22,22,"Type       Size",home_color(a,HOME_MUTED));
+        if (a->cursor<a->scroll) a->scroll=a->cursor;
+        if (a->cursor>=a->scroll+(size_t)rows) a->scroll=a->cursor-(size_t)rows+1;
+        for (int i=0;i<rows && a->scroll+(size_t)i<a->visible_count;++i) {
+            size_t index=a->scroll+(size_t)i; Entry *e=&a->current.entries[a->visible[index]];
+            int y=table_y+2+i, pair=index==a->cursor && a->home_focus==1 ? HOME_SELECTED : e->directory ? HOME_BLUE : HOME_BASE;
+            home_fill(a,w,y,x,1,content,pair);
+            snprintf(line,sizeof(line),"%s %s %s",e->marked ? "*" : " ",glyph(a,e),e->name);
+            text(w,y,x,content>45 ? content-24 : content,line,home_color(a,pair));
+            if(content>45) {
+                char size[24]; fs_size(size,sizeof(size),e->st.st_size);
+                snprintf(line,sizeof(line),"%-10s %s",e->directory ? "Folder" : e->symlink ? "Link" : "File",e->directory ? "--" : size);
+                text(w,y,x+content-22,22,line,home_color(a,pair));
+            }
+        }
+        if(!a->visible_count) text(w,table_y+2,x,content,"No files here. a creates a folder.",home_color(a,HOME_MUTED));
+    }
+    if (drive_y < 7) drive_y = 7;
+    text(w,drive_y,x,content,a->home_focus == 2 ? "> THIS PC / Drives" : "THIS PC / Drives",home_color(a,HOME_ACCENT)|A_BOLD);
+    size_t start=a->home_drive>=(size_t)drive_rows ? a->home_drive-(size_t)drive_rows+1 : 0;
+    for(int i=0;i<drive_rows && start+(size_t)i<a->drives.count;++i) {
+        size_t index=start+(size_t)i; Drive *d=&a->drives.items[index]; int y=drive_y+1+i*2;
+        double used=d->total ? 1.0-(double)d->available/(double)d->total : 0;
+        char total[24],free_space[24]; fs_size(total,sizeof(total),(off_t)d->total); fs_size(free_space,sizeof(free_space),(off_t)d->available);
+        snprintf(line,sizeof(line),"%s %s   %.0f%% used",a->home_focus == 2 && a->home_drive == index ? ">" : " ",!strcmp(d->path,"/") ? "Linux /" : d->path,used*100);
+        text(w,y,x,content,line,home_color(a,used>=.95 ? HOME_BAD : HOME_BASE)|A_BOLD);
+        int bar_width=content>55 ? content/2 : content/4;
+        home_bar(a,w,y+1,x,bar_width,used);
+        snprintf(line,sizeof(line),"%s free of %s",free_space,total);
+        text(w,y+1,x+bar_width+2,content-bar_width-2,line,home_color(a,HOME_MUTED));
+    }
+    if(!a->drives.count) text(w,drive_y+1,x,content,"No local drive capacity available",home_color(a,HOME_MUTED));
+    if(detail) {
+        int dx=width-detail;
+        for(int row=0;row<height;++row) text(w,row,dx-1,1,a->ascii ? "|" : "│",home_color(a,HOME_MUTED));
+        text(w,1,dx+2,detail-4,"DETAILS",home_color(a,HOME_ACCENT)|A_BOLD);
+        Entry *e=app_selected(a); char size[24];
+        text(w,3,dx+2,detail-4,"Current location",home_color(a,HOME_MUTED));
+        text(w,4,dx+2,detail-4,fs_basename(a->current.path),home_color(a,HOME_BASE)|A_BOLD);
+        text(w,6,dx+2,detail-4,"Selected file",home_color(a,HOME_MUTED));
+        text(w,7,dx+2,detail-4,e ? e->name : "Nothing selected",home_color(a,HOME_BASE)|A_BOLD);
+        if(e) {
+            fs_size(size,sizeof(size),e->st.st_size);
+            text(w,9,dx+2,detail-4,e->directory ? "Folder" : e->symlink ? "Symbolic link" : "File",home_color(a,HOME_MUTED));
+            text(w,10,dx+2,detail-4,e->directory ? "Enter to browse" : size,home_color(a,HOME_BASE));
+            struct tm modified; localtime_r(&e->st.st_mtime,&modified); strftime(line,sizeof(line),"%d %b %Y, %H:%M",&modified);
+            text(w,12,dx+2,detail-4,"Last modified",home_color(a,HOME_MUTED));
+            text(w,13,dx+2,detail-4,line,home_color(a,HOME_BASE));
+        }
+        text(w,height-5,dx+2,detail-4,"STORAGE",home_color(a,HOME_ACCENT)|A_BOLD);
+        snprintf(line,sizeof(line),"%zu mounted drives",a->drives.count); text(w,height-3,dx+2,detail-4,line,home_color(a,HOME_BASE));
+        text(w,height-2,dx+2,detail-4,"Updates every 5 seconds",home_color(a,HOME_MUTED));
+    }
+    wnoutrefresh(w);
 }
 static size_t panel_count(App *a) {
     if (a->panel == PANEL_HISTORY) return a->history.count;
@@ -336,10 +478,10 @@ static void feature_panel(App *a) {
         size_t index = a->panel_scroll + (size_t)row;
         bool selected = index == a->panel_cursor; int attr = color(a, INK);
         if (a->panel == PANEL_HISTORY) {
-            snprintf(line, sizeof(line), "%c %2zu  %s", index == a->history.position ? '*' : ' ', index + 1, a->history.entries[index].path);
+            snprintf(line, sizeof(line), "%c %2zu  %.900s", index == a->history.position ? '*' : ' ', index + 1, a->history.entries[index].path);
         } else if (a->panel == PANEL_TRASH) {
             time_t when = (time_t)(a->trash.entries[index].when / 1000000000u); struct tm tm; localtime_r(&when, &tm); char date[32]; strftime(date, sizeof(date), "%b %d %H:%M", &tm);
-            snprintf(line, sizeof(line), "%s  %s", date, a->trash.entries[index].original); attr = color(a, ACCENT);
+            snprintf(line, sizeof(line), "%s  %.900s", date, a->trash.entries[index].original); attr = color(a, ACCENT);
         } else if (a->panel == PANEL_USAGE) {
             pthread_mutex_lock(&a->usage.mutex); UsageItem item = a->usage.items[index]; uint64_t total = a->usage.total.allocated; pthread_mutex_unlock(&a->usage.mutex);
             char size[32], bar[15]; fs_size(size, sizeof(size), (off_t)item.usage.allocated);
@@ -410,7 +552,10 @@ static void bottom(App *a) {
         snprintf(buffer, sizeof(buffer), "%zu marked  /  %zu clipboard%s%s", marks, a->clipboard_count, a->query[0] ? "  /  filter: " : "", a->query);
         text(stdscr, row + 1, 2, COLS - 4, buffer, color(a, MUTED));
     }
-    if (a->panel != PANEL_NONE && a->mode != PALETTE_INPUT) {
+    if (a->panel == PANEL_HOME && a->mode == NORMAL) {
+        text(stdscr,row+2,2,COLS-4,"Tab switch area   arrows choose   Enter open   w browser   F1 Home",color(a,MUTED));
+        text(stdscr,row+3,1,8," HOME ",color(a,BAR)|A_BOLD);
+    } else if (a->panel != PANEL_NONE && a->panel != PANEL_HOME && a->mode != PALETTE_INPUT) {
         if (a->panel == PANEL_OPERATIONS) {
             size_t offset=(a->job.started ? 1 : 0)+a->queue_count;
             if (a->panel_cursor>=offset && a->panel_cursor-offset<a->operation_count) {
@@ -443,7 +588,7 @@ static void bottom(App *a) {
         }
         text(stdscr, row + 3, 2, COLS - 4, "Enter accept   Esc cancel   Ctrl-u clear", color(a, MUTED));
     } else {
-        text(stdscr, row + 2, 2, COLS - 4, "h j k l navigate   Tab preview   : commands   d trash   u undo   ? help", color(a, MUTED));
+        text(stdscr, row + 2, 2, COLS - 4, "F1 Home   h j k l navigate   Tab preview   : commands   d trash   ? help", color(a, MUTED));
         snprintf(buffer, sizeof(buffer), " %s ", a->query[0] ? "FILTERED" : "NORMAL");
         text(stdscr, row + 3, 1, (int)strlen(buffer), buffer, color(a, BAR) | A_BOLD);
         snprintf(buffer, sizeof(buffer), "%zu / %zu", a->visible_count ? a->cursor + 1 : 0, a->visible_count);
@@ -471,7 +616,8 @@ void ui_render(App *a) {
     if (strlen(path) > (size_t)(COLS - 5)) { size_t offset = strlen(path) - (size_t)(COLS - 8); while (((unsigned char)path[offset] & 0xc0) == 0x80) ++offset; text(stdscr, 2, 2, 3, "...", color(a, ACCENT)); text(stdscr, 2, 5, COLS - 7, path + offset, color(a, INK)); }
     else text(stdscr, 2, 2, COLS - 4, path, color(a, INK) | A_BOLD);
     bottom(a); wnoutrefresh(stdscr);
-    if (a->panel != PANEL_NONE) feature_panel(a);
+    if (a->panel == PANEL_HOME) home_dashboard(a);
+    else if (a->panel != PANEL_NONE) feature_panel(a);
     else if (a->preview_full) draw_preview(a, a->viewer, true);
     else { parent_pane(a); current_pane(a); draw_preview(a, a->right, false); }
     if (a->help) help(a);

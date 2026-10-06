@@ -43,7 +43,8 @@ def main(mode, path, width="1280", height="960", renderer="blocks"):
             raise RuntimeError("PDF preview needs pdftotext: install poppler-utils")
         if result.returncode:
             raise RuntimeError("Cannot preview this PDF (damaged, encrypted, or unsupported)")
-        sys.stdout.buffer.write(result.stdout[:65536] or b"No extractable text. This may be a scanned PDF.\n")
+        # One lookahead byte lets the reader identify a truncated 64 KiB preview.
+        sys.stdout.buffer.write(result.stdout[:65537] or b"No extractable text. This may be a scanned PDF.\n")
     elif mode == "archive":
         lines = ["ARCHIVE CONTENTS (listing only; nothing is extracted)", ""]
         if zipfile.is_zipfile(path):
@@ -60,7 +61,7 @@ def main(mode, path, width="1280", height="960", renderer="blocks"):
                         lines.append("... first 512 entries shown")
                         break
                     lines.append(f"{item.size:>12,}  {item.name}{'/' if item.isdir() else ''}{' -> ' + item.linkname if item.issym() or item.islnk() else ''}")
-        sys.stdout.buffer.write(("\n".join(lines) + "\n").encode("utf-8", "replace")[:65536])
+        sys.stdout.buffer.write(("\n".join(lines) + "\n").encode("utf-8", "replace")[:65537])
     else:
         raise RuntimeError("Unsupported preview")
 

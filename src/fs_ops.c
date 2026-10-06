@@ -30,6 +30,10 @@ void fs_free(Listing *l) {
     for (size_t i = 0; i < l->count; ++i) free(l->entries[i].name);
     free(l->entries); memset(l, 0, sizeof(*l));
 }
+void fs_paths_free(char **paths, size_t count) {
+    for (size_t i = 0; i < count; ++i) free(paths[i]);
+    free(paths);
+}
 static int by_name(const void *a, const void *b) {
     const Entry *x = a, *y = b;
     if (x->directory != y->directory) return x->directory ? -1 : 1;

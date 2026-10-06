@@ -5,8 +5,63 @@ Yazi's parent → current → preview flow and built on Linux system calls and
 wide-character ncurses. Warm amber accents, blue directories, understated
 metadata, generous spacing, and a keyboard-first workflow. No special font needed.
 
+Launch `termnav` without a directory to open the Home dashboard: outlined
+quick-access folders, navigation sidebar, file table and details pane, in the
+same dark amber-and-blue theme as the browser. Press `w`
+to switch between the dashboard and browser, or press `F1` to jump to Home
+from the browser, preview, help or a feature panel. Both `make demo` and
+`.\termnav.ps1 -Demo` start on Home with the demo files loaded.
+On Home, `Tab` cycles folders,
+files and drives; arrows choose an item and `Enter` opens it. Drive bars show
+live used percentage and available space out of total capacity, including
+Windows drives mounted in WSL. Compact two-line drive rows show all four drives
+at standard terminal sizes. Amber means 85% full; red means 95% full.
+Passing a directory starts directly in the browser.
+
 For the complete command reference and explanations of the code behind each
 feature, see [Commands, features, and code guide](docs/COMMANDS_FEATURES_AND_CODE.md).
+
+## Install with one command on Linux
+
+On Linux, install the latest version from GitHub with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | sh
+```
+
+The installer builds TermNav from source and installs it into `~/.local`.
+When build tools are missing, it offers to install them through `apt`, `apk`,
+`dnf`, `pacman`, or `zypper`, using `sudo` when needed. If `~/.local/bin` is not
+already on your `PATH`, the installer prints the command to add it.
+
+To choose another install location, pass `TERMNAV_PREFIX` to the shell running
+the installer, for example:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | TERMNAV_PREFIX="$HOME/.local" sh
+```
+
+A system-wide prefix such as `/usr/local` may require administrator
+permissions.
+
+TermNav currently uses Linux-specific filesystem features, so this command
+supports native Linux computers and Linux distributions in WSL. Native macOS
+and native Windows terminals are not supported. Windows users can install
+Ubuntu with `wsl --install -d Ubuntu`, then follow the WSL setup below.
+
+Image preview also needs Python 3 and Pillow. PDF text preview needs
+`pdftotext` from Poppler. The file manager itself works without these optional
+preview tools.
+
+To remove the default user installation:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/uninstall.sh | sh
+```
+
+Use the same `TERMNAV_PREFIX` setting when removing a custom-prefix
+installation. The program files are removed; user trash and configuration data
+are kept.
 
 ## Run on this Windows computer
 

@@ -2,6 +2,7 @@
 #include "fs_ops.h"
 #include <stdio.h>
 const Command commands[] = {
+    {"Home dashboard", "Quick folders, files and drive capacity bars", 'w'},
     {"Preview selected entry", "Full-screen text, images, PDF and archives", '\t'},
     {"Operations dashboard", "Queue, progress, pause, cancel and completed jobs", 't'},
     {"Disk usage explorer", "Scan folder sizes in the background", 'D'},

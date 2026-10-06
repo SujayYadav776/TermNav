@@ -1,0 +1,34 @@
+  TERM / NAV    a quiet place for your files                                                                                    HIDDEN  OFF
+
+  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground
+                   │                                                                                                │
+  TermNav          │  Home / Your workspace                                                                         │  DETAILS
+                   │  9 items   Name   a New folder   / Search                                                      │
+  WORKSPACE        │                                                                                                │  Current location
+                   │  QUICK ACCESS                                                                                  │  test-playground
+  w  Home          │  ╭──────╮               ╭──────╮               ╭──────╮               ╭──────╮                 │
+  o  Open location │  │      ╰─────────────╮ │      ╰─────────────╮ │      ╰─────────────╮ │      ╰─────────────╮   │  Selected file
+  H  Recent folders│  │ Home               │ │ Downloads          │ │ Documents          │ │ Pictures           │   │  documents
+  t  Operations    │  │ Folder             │ │ Folder             │ │ Folder             │ │ Folder             │   │
+  T  Trash         │  ╰────────────────────╯ ╰────────────────────╯ ╰────────────────────╯ ╰────────────────────╯   │  Folder
+  D  Disk explorer │                                                                                                │  Enter to browse
+                   │  > FILES / Enter open   p Paste   s Sort                                                       │
+                   │  Name                                                                   Type       Size        │  Last modified
+                   │    ▸ documents                                                          Folder     --          │  04 Oct 2026, 13:09
+                   │    ▸ inbox                                                              Folder     --          │
+                   │    ▸ notes                                                              Folder     --          │
+                   │    ▸ projects                                                           Folder     --          │
+                   │    · 01-welcome.md                                                      File       269 B       │
+                   │  THIS PC / Drives                                                                              │
+                   │    Linux /   5% used                                                                           │
+                   │  ━━────────────────────────────────────────────  955.2 GiB free of 1006.9 GiB                  │
+                   │    /mnt/c   55% used                                                                           │
+                   │  ━━━━━━━━━━━━━━━━━━━━━━━━━─────────────────────  212.2 GiB free of 476.0 GiB                   │  STORAGE
+                   │    /mnt/d   8% used                                                                            │
+  :  Commands      │  ━━━───────────────────────────────────────────  490.7 GiB free of 533.5 GiB                   │  4 mounted drives
+  ?  Keyboard help │    /mnt/e   3% used                                                                            │  Updates every 5 seconds
+                   │  ━─────────────────────────────────────────────  386.2 GiB free of 398.0 GiB                   │
+
+  Welcome. Press ? to find your way around.
+  Tab switch area   arrows choose   Enter open   w browser   F1 Home
+  HOME

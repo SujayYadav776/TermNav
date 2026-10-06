@@ -6,9 +6,7 @@ import subprocess
 import tempfile
 import zipfile
 
-namespace = {"__file__": str(Path(__file__).with_name("test_tui.py"))}
-exec(Path(namespace["__file__"]).read_text().split('with tempfile.TemporaryDirectory(prefix="termnav-tui-")')[0], namespace)
-Terminal, wait_for = namespace["Terminal"], namespace["wait_for"]
+from terminal_support import Terminal, wait_for
 
 with tempfile.TemporaryDirectory(prefix="termnav-new-features-") as tmp:
     root = Path(tmp)

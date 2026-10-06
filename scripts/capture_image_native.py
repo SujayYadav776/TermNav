@@ -9,17 +9,16 @@ ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/".tools"/"python"))
 import pyte
 
-namespace={"__file__":str(ROOT/"tests"/"test_image_preview.py")}
-source=Path(namespace["__file__"]).read_text().split('with tempfile.TemporaryDirectory(prefix="termnav-images-")')[0]
-exec(source,namespace)
-Terminal=namespace["Terminal"]
+sys.path.insert(0,str(ROOT/"tests"))
+from terminal_support import Terminal
+from image_support import decode_sixel
 t=Terminal(str(ROOT/"test-playground"),rows=34,cols=144,environment={"TERMNAV_IMAGE":"auto"},capability_reply=b"\x1b[?62;4;22c\x1b[6;25;10t")
 try:
     t.send("/landscape\n\t"); t.read(1)
     images=list(re.finditer(rb'\x1b7\x1b\[(\d+);(\d+)H(\x1bP0;1q.*?\x1b\\)\x1b8',t.output,re.S))
     assert images, "No native image emitted"
     image=images[-1]
-    raster=namespace["decode_sixel"](image[3])
+    raster=decode_sixel(image[3])
     raster.save(ROOT/"qa"/"native-image-raster.png")
     clean=re.sub(rb'\x1bP0;1q.*?\x1b\\',b"",t.output,flags=re.S)
     screen=pyte.Screen(144,34); stream=pyte.Stream(screen); stream.feed(clean.decode("utf-8","replace"))
