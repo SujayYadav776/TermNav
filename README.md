@@ -44,7 +44,10 @@ curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/
 The installer builds TermNav from source and installs it into `~/.local`.
 When build tools are missing, it offers to install them through `apt`, `apk`,
 `dnf`, `pacman`, or `zypper`, using `sudo` when needed. If `~/.local/bin` is not
-already on your `PATH`, the installer prints the command to add it.
+already on your `PATH`, the installer adds it to the startup file for Bash or
+Zsh (or `.profile` as a fallback). Open a new terminal, then type
+`termnav` from any directory. For a custom prefix, the same directory is added
+to your shell startup file.
 
 To choose another install location, pass `TERMNAV_PREFIX` to the shell running
 the installer, for example:
@@ -58,8 +61,30 @@ permissions.
 
 TermNav currently uses Linux-specific filesystem features, so this command
 supports native Linux computers and Linux distributions in WSL. Native macOS
-and native Windows terminals are not supported. Windows users can install
-Ubuntu with `wsl --install -d Ubuntu`, then follow the WSL setup below.
+and native Windows terminals are not supported.
+
+### Set up a new Windows device
+
+Open PowerShell and install Ubuntu in WSL:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Restart Windows if prompted, then open the **Ubuntu** app from the Start menu.
+In its terminal, install TermNav:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | sh
+```
+
+Open a new Ubuntu terminal and launch the app from any directory:
+
+```sh
+termnav
+```
+
+The same Linux install command works directly in a native Linux terminal.
 
 Image preview also needs Python 3 and Pillow. PDF text preview needs
 `pdftotext` from Poppler. The file manager itself works without these optional
@@ -84,6 +109,18 @@ project. The app is compiled in this folder. Open **Windows Terminal / PowerShel
 cd "C:\Users\ADMIN\OneDrive\Documents\ChatGPT\TermNav"
 .\termnav.ps1 -Demo
 ```
+
+To register `termnav` as a PowerShell command for future terminals, run this once
+from the project folder:
+
+```powershell
+.\scripts\install-powershell.ps1
+```
+
+Then type `termnav` to open Home, or `termnav -Path "C:\Users\ADMIN\Downloads"`
+to browse a Windows folder. The command invokes the existing WSL launcher; it
+does not add native Windows support. Run the installer again if you move the
+project folder.
 
 Browse a Windows directory:
 

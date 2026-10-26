@@ -71,7 +71,24 @@ make -s -C "$work/source" PREFIX="$prefix" install || fail "Install failed. Chec
 printf '\nTermNav installed at %s/bin/termnav\n' "$prefix"
 case ":${PATH:-}:" in
     *":$prefix/bin:"*) ;;
-    *) printf 'Add it to PATH with:\n  export PATH="%s/bin:%s"\n' "$prefix" "${PATH:-}" ;;
+    *)
+        case ${SHELL##*/} in
+            bash) startup=$home/.bashrc ;;
+            zsh) startup=${ZDOTDIR:-$home}/.zshrc ;;
+            *) startup=$home/.profile ;;
+        esac
+        mkdir -p "$(dirname "$startup")"
+        if ! { [ -f "$startup" ] && grep -Fq '# TermNav PATH' "$startup"; }; then
+            escaped_prefix=$(printf '%s' "$prefix/bin" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\$/\\$/g; s/`/\\`/g')
+            {
+                printf '\n# TermNav PATH\n'
+                printf 'case ":$PATH:" in *:"%s":*) ;; *) PATH="%s:$PATH" ;; esac\nexport PATH\n' "$escaped_prefix" "$escaped_prefix"
+            } >> "$startup" || fail "Could not add $prefix/bin to $startup; add it to PATH manually."
+            printf 'Added %s/bin to %s. Open a new terminal to use the termnav command.\n' "$prefix" "$startup"
+        else
+            printf 'Open a new terminal to use the termnav command from %s/bin.\n' "$prefix"
+        fi
+        ;;
 esac
 printf 'Start it with: termnav [directory]\n'
 printf 'Optional previews need Python 3; images also need Pillow, and PDFs need pdftotext.\n'
