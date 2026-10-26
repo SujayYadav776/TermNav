@@ -88,12 +88,13 @@ Normal operation requires interactive terminal input and output. Help and versio
 
 ### Windows launcher
 
-Run these examples from the project folder in PowerShell:
+Run these examples from the project folder in PowerShell (replace `Ubuntu` if
+your WSL distribution has a different name):
 
 ```powershell
-.\termnav.ps1
-.\termnav.ps1 -Path 'C:\Users\ADMIN\Downloads'
-.\termnav.ps1 -Demo
+.\termnav.ps1 -Distribution Ubuntu
+.\termnav.ps1 -Distribution Ubuntu -Path "$env:USERPROFILE\Downloads"
+.\termnav.ps1 -Distribution Ubuntu -Demo
 .\termnav.ps1 -All -Ascii
 .\termnav.ps1 -ImageRenderer blocks
 .\termnav.ps1 -ImageRenderer sixel
@@ -102,7 +103,7 @@ Run these examples from the project folder in PowerShell:
 | Parameter | Behavior |
 | --- | --- |
 | `-Path` | Starting directory; defaults to `.`. Windows drive paths are converted to WSL paths. |
-| `-Distribution` | WSL distribution; defaults to `TermNav-Dev`. |
+| `-Distribution` | WSL distribution; defaults to `TermNav-Dev` for the original development setup. Set it to the distribution installed on your device. |
 | `-All` | Show hidden files. |
 | `-Ascii` | Enable ASCII mode. |
 | `-NoColor` | Disable colors. |

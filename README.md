@@ -78,13 +78,17 @@ In its terminal, install TermNav:
 curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | sh
 ```
 
-Open a new Ubuntu terminal and launch the app from any directory:
+If `termnav` is not found in the current terminal, add the install folder to
+that session's `PATH` and try again:
 
 ```sh
+export PATH="$HOME/.local/bin:$PATH"
 termnav
 ```
 
-The same Linux install command works directly in a native Linux terminal.
+The installer adds this path to Bash's startup files; open a new Ubuntu
+terminal to keep using `termnav` without the export command. The same Linux
+install command works directly in a native Linux terminal.
 
 Image preview also needs Python 3 and Pillow. PDF text preview needs
 `pdftotext` from Poppler. The file manager itself works without these optional
@@ -100,13 +104,11 @@ Use the same `TERMNAV_PREFIX` setting when removing a custom-prefix
 installation. The program files are removed; user trash and configuration data
 are kept.
 
-## Run on this Windows computer
+## Run through Windows PowerShell
 
-A dedicated **TermNav-Dev** Alpine Linux WSL distribution has been set up for this
-project. The app is compiled in this folder. Open **Windows Terminal / PowerShell**:
+From the TermNav project folder, open **Windows Terminal / PowerShell** and run:
 
 ```powershell
-cd "C:\Users\ADMIN\OneDrive\Documents\ChatGPT\TermNav"
 .\termnav.ps1 -Demo
 ```
 
@@ -117,26 +119,26 @@ from the project folder:
 .\scripts\install-powershell.ps1
 ```
 
-Then type `termnav` to open Home, or `termnav -Path "C:\Users\ADMIN\Downloads"`
-to browse a Windows folder. The command invokes the existing WSL launcher; it
-does not add native Windows support. Run the installer again if you move the
-project folder.
+Then type `termnav` to open Home, or `termnav -Path "$env:USERPROFILE\Downloads"`
+to browse your Downloads folder. The command invokes the WSL launcher; it does
+not add native Windows support. Run the installer again if you move the project
+folder.
 
 Browse a Windows directory:
 
 ```powershell
-.\termnav.ps1 -Path "C:\Users\ADMIN\Downloads"
+.\termnav.ps1 -Path "$env:USERPROFILE\Downloads"
 ```
 
 If PowerShell's script policy blocks the launcher, run the app directly:
 
 ```powershell
-wsl -d TermNav-Dev --cd "C:\Users\ADMIN\OneDrive\Documents\ChatGPT\TermNav" --exec ./termnav test-playground
+wsl -d Ubuntu --cd /path/to/TermNav --exec ./termnav test-playground
 ```
 
-Use `-Distribution Ubuntu` with the launcher if you prefer an existing Ubuntu
-WSL distribution after installing the dependencies there. The binary built on
-Alpine uses musl: rebuild with `make clean && make` when changing distributions.
+Use `-Distribution Ubuntu` with the launcher if you have installed the build
+dependencies in Ubuntu. Build the program inside the distribution where you
+intend to run it.
 
 ## Build on Linux / Ubuntu / WSL
 

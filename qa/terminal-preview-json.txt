@@ -1,6 +1,6 @@
   TERM / NAV    a quiet place for your files                                                                                    HIDDEN  OFF     
                                                                                                                                                 
-  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground/palette.json                                                            
+  /home/user/TermNav/test-playground/palette.json
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ READ-ONLY PREVIEW                                                                                                                            │
 │ JSON  /  READ ONLY                                                                                                                           │

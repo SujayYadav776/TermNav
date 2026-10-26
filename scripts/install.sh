@@ -69,26 +69,27 @@ printf 'Installing to %s...\n' "$prefix"
 make -s -C "$work/source" PREFIX="$prefix" install || fail "Install failed. Check permissions for $prefix or choose another absolute path with TERMNAV_PREFIX."
 
 printf '\nTermNav installed at %s/bin/termnav\n' "$prefix"
+escaped_prefix=$(printf '%s' "$prefix/bin" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\$/\\$/g; s/`/\\`/g')
+path_line="case \":\$PATH:\" in *:\"$escaped_prefix\":*) ;; *) PATH=\"$escaped_prefix:\$PATH\" ;; esac"
+add_path() {
+    startup=$1
+    mkdir -p "$(dirname "$startup")"
+    if ! { [ -f "$startup" ] && grep -Fq "# TermNav PATH: $prefix/bin" "$startup"; }; then
+        {
+            printf '\n# TermNav PATH: %s/bin\n' "$prefix"
+            printf '%s\nexport PATH\n' "$path_line"
+        } >> "$startup" || fail "Could not add $prefix/bin to $startup; add it to PATH manually."
+        printf 'Added %s/bin to %s.\n' "$prefix" "$startup"
+    fi
+}
+case ${SHELL##*/} in
+    bash) add_path "$home/.bashrc"; add_path "$home/.profile" ;;
+    zsh) add_path "${ZDOTDIR:-$home}/.zshrc"; add_path "${ZDOTDIR:-$home}/.zprofile" ;;
+    *) add_path "$home/.profile" ;;
+esac
 case ":${PATH:-}:" in
     *":$prefix/bin:"*) ;;
-    *)
-        case ${SHELL##*/} in
-            bash) startup=$home/.bashrc ;;
-            zsh) startup=${ZDOTDIR:-$home}/.zshrc ;;
-            *) startup=$home/.profile ;;
-        esac
-        mkdir -p "$(dirname "$startup")"
-        if ! { [ -f "$startup" ] && grep -Fq '# TermNav PATH' "$startup"; }; then
-            escaped_prefix=$(printf '%s' "$prefix/bin" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\$/\\$/g; s/`/\\`/g')
-            {
-                printf '\n# TermNav PATH\n'
-                printf 'case ":$PATH:" in *:"%s":*) ;; *) PATH="%s:$PATH" ;; esac\nexport PATH\n' "$escaped_prefix" "$escaped_prefix"
-            } >> "$startup" || fail "Could not add $prefix/bin to $startup; add it to PATH manually."
-            printf 'Added %s/bin to %s. Open a new terminal to use the termnav command.\n' "$prefix" "$startup"
-        else
-            printf 'Open a new terminal to use the termnav command from %s/bin.\n' "$prefix"
-        fi
-        ;;
+    *) printf 'In this terminal, run: export PATH="%s/bin:$PATH"\n' "$prefix" ;;
 esac
 printf 'Start it with: termnav [directory]\n'
 printf 'Optional previews need Python 3; images also need Pillow, and PDFs need pdftotext.\n'

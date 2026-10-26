@@ -1,6 +1,6 @@
   TERM / NAV    a quiet place for your files                                                                                    HIDDEN  OFF     
                                                                                                                                                 
-  /mnt/c/Users/ADMIN/OneDrive/Documents/ChatGPT/TermNav/test-playground/project.zip                                                             
+  /home/user/TermNav/test-playground/project.zip
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ READ-ONLY PREVIEW                                                                                                                            │
 │ ARCHIVE / CONTENTS  /  READ ONLY                                                                                                             │
