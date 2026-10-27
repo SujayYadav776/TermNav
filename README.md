@@ -1,378 +1,208 @@
 # TermNav
 
-**A quiet place for your files.** A real terminal file manager in C, inspired by
-Yazi's parent → current → preview flow and built on Linux system calls and
-wide-character ncurses. Warm amber accents, blue directories, understated
-metadata, generous spacing, and a keyboard-first workflow. No special font needed.
-
-Launch `termnav` without a directory to open the Home dashboard: outlined
-quick-access folders, navigation sidebar, file table and details pane, in the
-same dark amber-and-blue theme as the browser. Press `w`
-to switch between the dashboard and browser, or press `F1` to jump to Home
-from the browser, preview, help or a feature panel. Both `make demo` and
-`.\termnav.ps1 -Demo` start on Home with the demo files loaded.
-On Home, `Tab` cycles folders,
-files and drives; arrows choose an item and `Enter` opens it.
-The file list also supports Right/`l` to open and Left/`h` or Backspace to go
-to the parent directory. The PowerShell launcher connects Home shortcuts to
-your Windows user folders, including folders stored in OneDrive.
-Drive bars show
-live used percentage and available space out of total capacity, including
-Windows drives mounted in WSL. Compact two-line drive rows show all four drives
-at standard terminal sizes. Amber means 85% full; red means 95% full.
-Passing a directory starts directly in the browser.
-
-For the complete command reference and explanations of the code behind each
-feature, see [Commands, features, and code guide](docs/COMMANDS_FEATURES_AND_CODE.md).
-
-Press **S** on Home or in the browser to search filenames in the current
-directory and its subfolders. Enter a name and press Enter. Results appear as
-the background search runs; Enter opens a result, `o` reveals its location,
-`S` starts a new query, `x` stops the search and Esc closes it. The existing
-`/` filter searches only the current folder. Search honors hidden-file settings,
-does not follow directory symlinks or cross into other mounted filesystems,
-and limits results to 1,000. To search another drive, open that drive first.
-
-## Install with one command on Linux
-
-On Linux, install the latest version from GitHub with:
+**A quiet place for your files.** A keyboard-first terminal file manager in C,
+built on Linux system calls and wide-character ncurses, with a
+parent → current → preview flow, live background operations, and a recoverable
+trash. Warm amber accents, blue directories, no special font required.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | sh
 ```
 
-The installer builds TermNav from source and installs it into `~/.local`.
-When build tools are missing, it offers to install them through `apt`, `apk`,
-`dnf`, `pacman`, or `zypper`, using `sudo` when needed. If `~/.local/bin` is not
-already on your `PATH`, the installer adds it to the startup file for Bash or
-Zsh (or `.profile` as a fallback). Open a new terminal, then type
-`termnav` from any directory. For a custom prefix, the same directory is added
-to your shell startup file.
+Builds from source, installs into `~/.local`, and offers to install missing
+build tools. Open a new terminal and run `termnav`. Requires Linux or a Linux
+distribution under WSL; native macOS and native Windows are not supported.
 
-To choose another install location, pass `TERMNAV_PREFIX` to the shell running
-the installer, for example:
+Launch without arguments to open the **Home** dashboard: quick-access folders,
+a file table, a details pane, and live drive capacity bars. Pass a directory to
+start straight in the browser.
+
+---
+
+## What you get
+
+- **Three panes** — parent directory, current directory, live preview. Collapses
+  to two, then one, as the terminal narrows. Resize at any time.
+- **Navigation that keeps its place** — vim and arrow keys, paging, sorting by
+  name/size/modified, hidden-file toggle, and back/forward history that restores
+  your selection and filter. Listings have no fixed entry limit.
+- **Two search scopes** — a `/` fuzzy subsequence filter over the current folder
+  (`tfm` matches `Terminal_File_Manager`), and `S` for a recursive background
+  filename search whose results stream in as they are found.
+- **Read-only previews** — text with line numbers and lightweight highlighting,
+  hexadecimal binary inspection with horizontal panning, colour images, PDF text,
+  and archive listings. Nothing is ever modified by looking at it.
+- **Recoverable deletion** — `d` moves items to a private trash; `u` restores the
+  last batch even after a restart, and `T` browses individual items.
+- **Visible background work** — an operations dashboard with progress, speed,
+  elapsed time, pause/resume, cancellation, and recent results.
+- **Storage inspection** — a background disk usage explorer with allocated-size
+  bars and drill-down, plus drive capacity rows that work for Windows drives
+  mounted in WSL.
+- **Colour images where terminals support them** — native Sixel raster output
+  sized to the pane, with a Unicode half-block fallback elsewhere. Windows
+  Terminal 1.22 and newer renders the native path.
+- A searchable command palette, inline create and rename, multi-file marking, a
+  persistent copy clipboard, editor integration, in-app help, `NO_COLOR`, ASCII
+  mode, and a simple config file.
+
+## Keys
+
+The essentials. The complete reference, with the code behind each feature, is in
+[docs/COMMANDS_FEATURES_AND_CODE.md](docs/COMMANDS_FEATURES_AND_CODE.md).
+
+| Key | Action |
+| --- | --- |
+| `j` `k` / `l` `h` | Move, enter directory, go to parent |
+| `Enter` / `Tab` | Open a file's full-screen preview / expand the preview |
+| `/` | Live fuzzy filter (`Esc` clears) |
+| `S` | Recursive filename search; `x` stops, `o` reveals a result |
+| `Space` / `v` | Mark one / mark everything visible |
+| `y` `p` `c` | Copy to clipboard, paste here, copy to a directory |
+| `a` / `r` | Create a directory / rename |
+| `d` / `u` / `T` / `X` | Trash (type `trash`) / undo batch / restore browser / delete permanently (type `delete`) |
+| `t` | Operations dashboard; `Space` pauses, `x` cancels |
+| `b` `f` `H` | Back, forward, history picker |
+| `D` | Disk usage explorer |
+| `s` `.` `R` | Cycle sort, toggle hidden, refresh |
+| `:` | Command palette |
+| `e` / `?` / `q` | Edit in `$EDITOR`, help, quit |
+
+Clipboard and batch operations use **all marks in the current directory**,
+including ones a filter has hidden. Leaving a directory clears its marks.
+
+Inside the full-screen viewer the same movement keys scroll, `h` `l` pan
+horizontally by four cells, `0` returns to the start of a line, and `R`
+regenerates the preview while keeping your position. The viewer is read-only:
+create, rename, copy and delete keys are inactive until you return with `Esc`,
+`Tab` or `q`, and your filter, selection and marks are still there when you do.
+
+## Behaviour worth knowing before you trust it
+
+- Copies and renames **never silently overwrite**. A file is written to an
+  exclusive temporary file, synced, then published with an atomic no-replace
+  hard link. Filesystems without no-replace support report an error rather than
+  falling back to an unsafe overwrite.
+- Trash payloads live in a private `.termnav-trash-<uid>` directory beside the
+  original, so restore is an atomic rename on the same filesystem. This is
+  TermNav's own trash, not the desktop recycle bin.
+- **Cancellation keeps completed work.** A partially copied directory can remain;
+  a batch stops at its first failure. Undo covers trash only, not copy, rename,
+  or permanent delete.
+- Recursive operations are bounded to 128 levels; searches stop at 1,000 results
+  and 255-byte queries; preview reads stop at 64 KiB; PDF text covers the first
+  five pages and archives 512 entries. Rich previews run in a cancellable child
+  with a five-second timeout and a memory cap.
+- Metadata fidelity is partial by design: permission bits and timestamps are
+  preserved, ownership, ACLs, xattrs, setuid and hard-link relationships are not.
+  Symlinks are copied as links and never followed by recursive operations.
+- Directory listings and metadata reads run on the UI thread, so a very large or
+  slow remote directory can pause navigation. Plugins, tabs and a cut/move
+  clipboard are outside this release.
+
+## Measured search behaviour
+
+Recursive no-match filename search, on generated trees of empty files, query
+`qzxv`, median of three runs, one Windows 11 host with WSL2. Times are
+end-to-end interface responses, from submitting the query until the app reports
+that nothing matched.
+
+| Files | TermNav, native WSL storage | TermNav, NTFS through `/mnt/c` | Mounted-path penalty |
+| ---: | ---: | ---: | ---: |
+| 1,000 | 0.084 s | 0.470 s | 5.6x |
+| 10,000 | 0.083 s | 3.836 s | 46.0x |
+| 100,000 | 0.166 s | 37.250 s | 224x |
+
+The same query against Windows File Explorer, on one shared NTFS volume:
+
+| Files | File Explorer | TermNav | Result |
+| ---: | ---: | ---: | ---: |
+| 1,000 | 1.80 s | 1.14 s | TermNav 1.58x faster |
+| 10,000 | 2.49 s | 8.48 s | Explorer 3.41x faster |
+| 100,000 | 7.76 s | 76.29 s | Explorer 9.83x faster |
+
+**How to read this.** The storage path dominates. The gap between the two
+TermNav columns is the WSL mount layer, not the search code, and it widens with
+the tree because recursive search performs directory reads and metadata checks
+at every level. On the shared volume Explorer scales better at the larger sizes;
+TermNav's advantage appears only on native WSL storage. Windows Search was
+running but held no indexed entries for these folders, cache state was not reset
+between runs, values below 0.1 s sit near the redraw floor of the interface, and
+three runs on one machine bind the result to this environment. These are
+measurements of one configuration, not a general ranking of the two tools.
+
+## Install
+
+One command, as above. To choose a prefix:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | TERMNAV_PREFIX="$HOME/.local" sh
 ```
 
-A system-wide prefix such as `/usr/local` may require administrator
-permissions.
-
-TermNav currently uses Linux-specific filesystem features, so this command
-supports native Linux computers and Linux distributions in WSL. Native macOS
-and native Windows terminals are not supported.
-
-### Set up a new Windows device
-
-Open PowerShell and install Ubuntu in WSL:
-
-```powershell
-wsl --install -d Ubuntu
-```
-
-Restart Windows if prompted, then open the **Ubuntu** app from the Start menu.
-In its terminal, install TermNav:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/install.sh | sh
-```
-
-If `termnav` is not found in the current terminal, add the install folder to
-that session's `PATH` and try again:
-
-```sh
-export PATH="$HOME/.local/bin:$PATH"
-termnav
-```
-
-The installer adds this path to Bash's startup files; open a new Ubuntu
-terminal to keep using `termnav` without the export command. The same Linux
-install command works directly in a native Linux terminal.
-
-Image preview also needs Python 3 and Pillow. PDF text preview needs
-`pdftotext` from Poppler. The file manager itself works without these optional
-preview tools.
-
-To remove the default user installation:
+To remove a user installation (keeps trash and configuration):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/SujayYadav776/TermNav/main/scripts/uninstall.sh | sh
 ```
 
-Use the same `TERMNAV_PREFIX` setting when removing a custom-prefix
-installation. The program files are removed; user trash and configuration data
-are kept.
+### Build from source
 
-## Run through Windows PowerShell
-
-From the TermNav project folder, open **Windows Terminal / PowerShell** and run:
-
-```powershell
-.\termnav.ps1 -Demo
-```
-
-To register `termnav` as a PowerShell command for future terminals, run this once
-from the project folder:
-
-```powershell
-.\scripts\install-powershell.ps1
-```
-
-Then type `termnav` to open Home, or `termnav -Path "$env:USERPROFILE\Downloads"`
-to browse your Downloads folder. The command invokes the WSL launcher; it does
-not add native Windows support. Run the installer again if you move the project
-folder.
-
-Browse a Windows directory:
-
-```powershell
-.\termnav.ps1 -Path "$env:USERPROFILE\Downloads"
-```
-
-If PowerShell's script policy blocks the launcher, run the app directly:
-
-```powershell
-wsl -d Ubuntu --cd /path/to/TermNav --exec ./termnav test-playground
-```
-
-Use `-Distribution Ubuntu` with the launcher if you have installed the build
-dependencies in Ubuntu. Build the program inside the distribution where you
-intend to run it.
-
-## Build on Linux / Ubuntu / WSL
-
-Requires Linux, a C11 compiler, make, pthreads, and ncurses with wide-character
-support. Python 3 enables rich previews, the demo, and integration tests.
-Images additionally use Pillow; PDF text uses Poppler. Archive listings use
-Python's standard library. These helpers are optional and already installed in
-this computer's TermNav-Dev distribution.
+Requires a C11 compiler, make, pthreads and ncurses with wide-character support.
+Python 3 enables rich previews, the demo and the integration tests; Pillow is
+used for images and Poppler for PDF text.
 
 ```sh
 # Ubuntu / Debian
-sudo apt update
 sudo apt install build-essential pkg-config libncursesw5-dev python3
-# Optional rich previews
-sudo apt install python3-pillow poppler-utils
+sudo apt install python3-pillow poppler-utils        # optional rich previews
 
 # Alpine
 apk add build-base ncurses-dev ncurses-terminfo python3
 apk add py3-pillow poppler-utils
 
-make
-./termnav                 # current directory
-./termnav ~/Downloads     # any directory
-make demo                 # create and browse the disposable demo
+make && ./termnav            # current directory
+./termnav ~/Downloads        # any directory
+make demo                    # create and browse a disposable demo tree
+
+make install PREFIX="$HOME/.local"   # or: sudo make install
 ```
 
-For a new Windows machine, install Ubuntu with `wsl --install -d Ubuntu`, open
-Ubuntu, and follow the Linux instructions. WSL must be available; TermNav is a
-Linux binary, not a native Windows executable.
+### From Windows
 
-Optional system installation:
-
-```sh
-sudo make install         # /usr/local/bin/termnav + manual page
-make install PREFIX="$HOME/.local"
-man termnav
-```
-
-## What it does
-
-- Three panes: parent directory, current directory, live preview. At narrower
-  widths it switches to two panes, then one. Resize at any time.
-- Arrow and vim navigation, paging, directory jumps, hidden-file toggle, and
-  name/size/modified sorting. Listings have no fixed 1024-entry limit.
-- Text previews with line numbers and lightweight syntax highlighting; directory
-  previews; explicit binary, symlink, special-file, and permission-error states.
-- Full-screen read-only previews with vertical scrolling, horizontal panning,
-  and hexadecimal inspection of binary files. Works in single-pane terminals too.
-- Unicode filenames and text, cell-aware clipping, and sanitized control bytes.
-- Inline directory creation and rename; atomic refusal to overwrite on rename.
-- Case-insensitive fuzzy **subsequence** filtering as you type (`tfm` matches
-  `Terminal_File_Manager`). Unicode characters match exactly; case folding is ASCII.
-- Multi-file marking, a persistent copy clipboard, and recursive directory copy.
-- Persistent trash with batch undo and a recovery browser; restoration never overwrites.
-- Queued background operations with progress, speed, elapsed time, pause/resume,
-  cancellation, and an operations dashboard with recent results.
-- Directory back/forward history that restores selection and filters.
-- Background disk usage explorer with allocated-size bars and drill-down navigation.
-- Searchable command palette, color image thumbnails, PDF text, and archive listings.
-- Refreshes external filesystem changes every two seconds while idle.
-- Editor integration, in-app help, ASCII mode, `NO_COLOR`, and simple config.
-
-## Keys
-
-| Key | Action |
-| --- | --- |
-| `j` / `k`, `↓` / `↑` | Next / previous entry |
-| `l`, `→`, `Enter` | Enter a directory, or open a file's full-screen preview |
-| `h`, `←`, `Backspace` | Parent directory; reselect the folder you left |
-| `gg`, `Home` / `G`, `End` | First / last entry |
-| `Ctrl-d`, `PageDown` / `Ctrl-u`, `PageUp` | Page down / up |
-| `J` / `K` | Scroll preview down / up |
-| `Tab` | Expand the selected entry's preview (including directories) |
-| `/` | Live fuzzy filter; `Enter` keeps it, `Esc` clears it |
-| `.` | Toggle hidden files |
-| `s` | Cycle name → size → modified sorting |
-| `R`, `Ctrl-l` | Refresh |
-| `Space` | Toggle a mark and move down |
-| `v` | Mark / unmark every visible entry |
-| `y` | Copy selected or marked paths to the clipboard |
-| `p` | Copy clipboard items into the current directory |
-| `c` | Copy selected or marked items to an existing directory |
-| `a` | Create a directory |
-| `r` | Rename the selected entry (starts with its current name) |
-| `d` | Trash selected or marked items; type `trash` to confirm |
-| `u` / `T` | Undo latest trash batch / browse and restore individual items |
-| `X` | Permanently delete selected or marked items; type `delete` to confirm |
-| `t` | Operations dashboard; `Space` pauses/resumes, `x` cancels selected job |
-| `b` / `f` / `H` | Directory back / forward / history picker |
-| `D` | Disk usage; `Enter` drills down, `h` goes up, `o` reveals in browser |
-| `:` | Search commands; arrows choose, `Enter` runs, `Esc` closes |
-| `o` | Go to an absolute, relative, or `~/` directory |
-| `~` | Home directory |
-| `e` | Edit file using `$EDITOR`, default `vi` |
-| `?` | Help |
-| `Esc` | Clear filter and marks, or cancel an active job |
-| `q` | Quit; active or queued jobs require typing `q` and Enter |
-
-All prompts: `Enter` accepts, `Esc` cancels, `Ctrl-u` clears, and `Backspace`
-removes a Unicode character. Clipboard and batch operations use **all marks in
-the current directory**, including marks hidden by a filter. Leaving a directory
-clears its marks; clipboard paths remain available.
-
-Copy destinations must already exist. A single copied file retains its name;
-use rename after copying if you want a different name. `y`, navigate, `p` is the
-quickest way to copy between folders. The editor setting is one executable name
-or path, without shell arguments; filenames are passed as a separate argument.
-
-## Full-screen preview
-
-Select a file and press **Enter**, or press **Tab** on any entry to expand its
-preview. The viewer is read-only: create, rename, copy, and delete keys are
-inactive until you return to the browser. Your filter, selection, and marks
-remain in place when you close it.
-
-| Key inside the viewer | Action |
-| --- | --- |
-| `j` / `k`, `J` / `K`, `↓` / `↑` | Scroll down / up |
-| `PageDown`, `Ctrl-d`, `Space` / `PageUp`, `Ctrl-u` | Page down / up |
-| `gg`, `Home` / `G`, `End` | First / last preview row |
-| `h` / `l`, `←` / `→` | Pan horizontally by four terminal cells |
-| `0` | Return to the start of the line |
-| `R`, `Ctrl-l` | Refresh the selected preview while keeping its scroll position |
-| `Esc`, `Tab`, `q` | Close the viewer and return to the browser |
-
-Code previews recognize C/C++, Python, JavaScript/TypeScript, Rust, Go, JSON,
-shell, and Markdown. Highlighting is a lightweight per-line lexer, rather than
-a full language parser; it does not track multi-line string/comment state.
-Binary previews show sixteen bytes per row, with hexadecimal offsets and a
-printable ASCII column. On narrow terminals, use horizontal panning to inspect
-the rest of a row. Symlinks show their target without following it; devices,
-sockets and FIFOs remain metadata-only.
-
-Content reads remain bounded to the first **64 KiB**, with truncation visibly
-labelled. Automatic directory refresh pauses while the full-screen viewer is
-open so it cannot disturb your reading position; press `R` for a fresh snapshot.
-Horizontal panning resets when you return to the side pane. The command palette
-also works in the viewer; executing an action closes the viewer first.
-
-Images (PNG, JPEG, WebP, GIF, BMP) use **native Sixel raster graphics** when the
-terminal reports support, with an adaptive image palette and previews sized to
-the pane's pixel dimensions. The image stays sharp up to a bounded 1280×960
-preview; smaller originals retain their resolution. Other terminals use a finer
-Unicode half-block fallback (two vertical pixels per text cell), or plain blocks
-in ASCII mode. A 256-color terminal is required for fallback colors. Images keep
-their aspect ratio and show the first frame; EXIF orientation and transparency
-are handled. Resize or expand with Tab to regenerate at the appropriate size.
-
-Windows Terminal supports Sixel in its 1.22 releases and newer; use Windows
-Terminal for native image previews. See Microsoft's
-[Sixel announcement](https://devblogs.microsoft.com/commandline/windows-terminal-preview-1-22-release/).
-The app queries graphics support and cell
-pixel size, rather than assuming support from `TERM`. If a terminal proxy blocks
-the capability response, explicitly choose the renderer:
+TermNav is a Linux binary. On a new Windows machine, install WSL first:
 
 ```powershell
-.\termnav.ps1 -Demo -ImageRenderer sixel
+wsl --install -d Ubuntu        # restart if prompted, then open Ubuntu
 ```
+
+In Ubuntu, run the one-line installer from the top of this page. Then, from the
+project folder in PowerShell, `termnav.ps1` launches the build inside WSL and
+maps your Windows user folders, including locations redirected to OneDrive.
+
+```powershell
+.\termnav.ps1 -Demo
+.\termnav.ps1 -Path "$env:USERPROFILE\Downloads"
+.\scripts\install-powershell.ps1        # register `termnav` for future shells
+```
+
+This is a convenience wrapper around the Linux binary, not native Windows
+support. To force or disable the image renderer:
 
 ```sh
-TERMNAV_IMAGE=sixel ./termnav  # force only on a Sixel-capable terminal
-TERMNAV_IMAGE=blocks ./termnav # disable graphics / use the portable fallback
+TERMNAV_IMAGE=sixel ./termnav     # only on a Sixel-capable terminal
+TERMNAV_IMAGE=blocks ./termnav    # portable character-cell fallback
 ```
 
-Automatic graphics are disabled inside tmux; passthrough requires separate
-terminal/multiplexer configuration. Native images clear before menus, resizing
-or selection changes. The launcher now rebuilds changed source files on launch.
-PDFs show extractable text from the first five pages; scanned pages need OCR
-elsewhere. ZIP and tar archives list up to 512 entries without extracting anything.
-Compressed tar files are supported; standalone compressed streams show an error.
-Rich previews run in a cancellable child process with a five-second timeout,
-384 MiB memory limit, three CPU seconds, and a 64 KiB text output cap (8 MiB for
-bounded image data). Missing helpers
-and malformed files show readable errors. Press `R` to regenerate the preview.
+## Terminal and configuration
 
-## File-operation behavior
-
-`d` moves files to TermNav's private trash after you type `trash`. `u` restores
-the latest remaining batch, even after restarting. `T` lets you restore individual
-items with Enter. A conflicting original filename leaves both files intact;
-rename the replacement, then retry. Undo applies to trash, rather than arbitrary
-copy, rename, or permanent-delete operations. `X` is permanent and requires `delete`.
-
-Trash payloads live in a private `.termnav-trash-<uid>` sibling directory beside
-each original file, allowing an atomic rename on the same filesystem. Persistent
-records live in `$XDG_DATA_HOME/termnav/trash` or `~/.local/share/termnav/trash`.
-This is TermNav's own trash, separate from desktop recycle bins. Keep its records
-and payload directories for recovery; if an original parent directory moves,
-restore that parent first. Empty payload directories can remain. On filesystems
-that cannot enforce private directory permissions, trash reports an error.
-
-The operations dashboard retains 32 recent results per session and queues up to
-16 jobs behind one active worker. Pause is cooperative, between filesystem steps;
-cancel stops remaining work. Queued jobs can be removed with `x`. Exiting cancels
-the active job and discards pending jobs. A batch stops at its first failure.
-
-History retains up to 64 locations per session; visiting a new location after
-going back replaces the forward branch. Disk usage scans include hidden files,
-use allocated blocks, and never follow symlinks. Apparent size is also shown.
-Hard links count once per directory entry, so totals may differ from `du`.
-
-Copies and renames never silently overwrite existing destinations. File copies
-write to an exclusive temporary file, sync it, then publish it with an atomic
-no-replace hard link. Temporary files are removed on ordinary errors or
-cancellation. Regular files preserve permission bits and timestamps; copied
-directories preserve permission bits and timestamps after their contents finish.
-Setuid/setgid bits, ownership, ACLs, xattrs and hard-link relationships are not
-preserved. Symlinks are copied as links; recursive copy/delete never follow them.
-Copying a directory into itself or a descendant is rejected, including through
-a destination-directory symlink. FIFOs, sockets and devices are never read for
-previews, and special files cannot be copied.
-
-Cancellation stops remaining work and **keeps completed changes**. A partially
-copied directory may remain; failed batch jobs stop at the first error. Recursive
-operations are bounded to 128 levels. Filesystems without Linux no-replace rename
-or hard-link support report an error rather than falling back to an unsafe
-overwrite. Reads/copies are not filesystem snapshots; avoid modifying the same
-tree from another process during an operation. A forced kill or power loss can
-leave `.termnav-copy-*` staging files.
-
-## Appearance and configuration
-
-Use a UTF-8 terminal with 256 colors. Windows Terminal works well. Standard
-monospace fonts are sufficient; no Nerd Font required. Three panes need 108
-columns, two panes need 76, and the minimum usable terminal is 38 × 14.
+Use a UTF-8 terminal with 256 colours. Three panes want 108 columns, two panes
+76, and the minimum usable size is 38 × 14. Standard monospace fonts are enough.
 
 ```sh
-./termnav --all --ascii
-NO_COLOR=1 ./termnav
-./termnav --no-color
+./termnav --ascii        ./termnav --no-color        NO_COLOR=1 ./termnav
 ```
 
-Copy `config.example` to `~/.config/termnav/config`, or
-`$XDG_CONFIG_HOME/termnav/config`:
+Copy `config.example` to `~/.config/termnav/config`:
 
 ```ini
 show_hidden = false
@@ -380,31 +210,36 @@ ascii = false
 sort = name
 ```
 
-CLI options take priority. Preview reads are bounded to 64 KiB. Directory
-listings and metadata reads run on the UI thread; very large or slow remote
-directories can pause navigation. Plugins, tabs, and a cut/move clipboard are
-outside this release. Rich previews and recursive disk scans run in the background.
+Command-line options take priority. External filesystem changes are picked up
+every two seconds while idle, and paused while the full-screen viewer is open.
 
 ## Verification
 
 ```sh
-make check                # filesystem tests + real pseudo-terminal UI tests
-make sanitize             # ASan / UBSan build and tests; toolchain support required
-valgrind --leak-check=full --error-exitcode=1 ./build/test_fs
-make clean && make        # restore normal optimized build after sanitizer tests
+make check       # filesystem tests plus real pseudo-terminal UI tests
+make sanitize    # ASan / UBSan build and tests
 ```
 
-Tests create their own disposable trees under `/tmp`; they do not operate on
-personal files. Coverage includes >1024 entries, metadata, byte-correct copies,
-no-clobber behavior, symlink safety, descendant rejection, cancellation, binary
+Tests build their own disposable trees under `/tmp` and never touch personal
+files. Coverage includes listings beyond 1,024 entries, byte-correct copies,
+no-clobber behaviour, symlink safety, descendant rejection, cancellation, binary
 and FIFO previews, background jobs, navigation, Unicode, filtering, create,
-rename, copy/paste, batch copy, delete confirmation, editor restoration,
-full-screen reading, binary hex inspection, horizontal panning, read-only controls,
-terminal resizing, external refresh, signals and terminal restoration. Additional
-tests cover persisted trash, restore conflicts, history branching, disk scans,
-the command palette, image/PDF previews, archive listing, and corrupt images. CI is
-configured for GCC and Clang on Ubuntu with memory and sanitizer checks.
+rename, paste, batch copy, delete confirmation, editor restoration, full-screen
+reading, horizontal panning, resizing, signals and terminal restoration, plus
+persisted trash, restore conflicts, history branching, disk scans, the command
+palette, image and PDF previews, archive listing and corrupt input. CI runs GCC
+and Clang on Ubuntu with memory and sanitizer checks.
 
-See [the engineering report](docs/REPORT.md) for architecture, syscall choices,
-I/O tradeoffs, and the CO5/CO6 mapping; [the demo guide](docs/DEMO.md) for a short
-walkthrough. Licensed under MIT.
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [Commands, features and code](docs/COMMANDS_FEATURES_AND_CODE.md) | Every key, every prompt, and the code behind each feature |
+| [Codebase walkthrough](docs/CODEBASE_WALKTHROUGH.md) | Module map and how the event loop, workers and previews fit together |
+| [Engineering report](docs/REPORT.md) | Architecture, syscall choices, I/O tradeoffs |
+| [Demo guide](docs/DEMO.md) | A short guided walkthrough |
+| [Manual page](docs/termnav.1) | `man termnav` after `make install` |
+
+## License
+
+MIT. See [LICENSE](LICENSE).
